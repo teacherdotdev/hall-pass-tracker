@@ -24,7 +24,8 @@ storage. See `docs/adr/0005-local-first-with-the-kiosk-in-charge-of-the-door.md`
   stores nothing and never receives pass data.
 - Pass data travels over WebRTC's encrypted channel, directly between the
   devices where the network allows. Where it doesn't, it is relayed through
-  Cloudflare's TURN servers (`turn.cloudflare.com`), which pass the encrypted
+  Cloudflare's TURN servers (`turn.cloudflare.com`, also offered as
+  `turn.happyhallways.com` and `turn.teacher.dev`), which pass the encrypted
   data along without being able to read it. The browser gets relay logins
   from `/api/turn` that expire after 12 hours; the Cloudflare token that
   creates them stays on the server. Anyone can ask `/api/turn` for logins, so

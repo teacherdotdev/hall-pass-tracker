@@ -9,6 +9,14 @@
  */
 const loginHours = 12;
 
+/**
+ * Our own names for Cloudflare's relay (DNS-only CNAMEs to turn.cloudflare.com),
+ * for school filters that block the name turn.cloudflare.com. Cloudflare only
+ * honours these for plain TURN over UDP and TCP; TLS (turns:) must keep its own
+ * name. Two domains, because some schools block teacher.dev.
+ */
+const ourRelayNames = ['turn.happyhallways.com', 'turn.teacher.dev'];
+
 export async function GET(): Promise<Response> {
   const { TURN_KEY_ID, TURN_KEY_API_TOKEN } = process.env;
   if (!TURN_KEY_ID || !TURN_KEY_API_TOKEN)
@@ -31,8 +39,9 @@ export async function GET(): Promise<Response> {
   const { iceServers } = (await response.json()) as {
     iceServers: RTCIceServer[];
   };
+  const servers = [iceServers].flat().map(withoutPort53);
   return Response.json(
-    { iceServers: [iceServers].flat().map(withoutPort53) },
+    { iceServers: [...servers, ...servers.flatMap(underOurNames)] },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }
@@ -43,4 +52,14 @@ function withoutPort53(server: RTCIceServer): RTCIceServer {
     ...server,
     urls: [server.urls].flat().filter((url) => !/:53(\?|$)/.test(url)),
   };
+}
+
+/** The same relay logins again, with each plain TURN address under each of our own names. */
+function underOurNames(server: RTCIceServer): RTCIceServer[] {
+  const plainTurn = [server.urls].flat().filter((url) => url.startsWith('turn:turn.cloudflare.com'));
+  if (plainTurn.length === 0) return [];
+  return ourRelayNames.map((name) => ({
+    ...server,
+    urls: plainTurn.map((url) => url.replace('turn.cloudflare.com', name)),
+  }));
 }
