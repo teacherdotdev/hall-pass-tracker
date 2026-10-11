@@ -2,9 +2,9 @@
   import { siteUrl } from '#lib/guides.ts';
   import { supportEmail, supportMailto } from '#lib/support.ts';
 
-  const title = 'About Happy Hallways · Built at the EdTech-a-thon';
+  const title = 'About Happy Hallways · A free hall pass from teacher.dev';
   const description =
-    'Happy Hallways is a free digital hall pass from the EdTech-a-thon, a community building free classroom tools. No paywalls, no ads, no tracking.';
+    'Happy Hallways is a free digital hall pass from teacher.dev, a community building free classroom tools. No paywalls, no ads, no tracking.';
 </script>
 
 <svelte:head>
@@ -31,14 +31,14 @@
   <section class="card">
     <div class="card-heading">
       <img src="/edtechathon-logo.svg" alt="" width="40" height="40" />
-      <h2>From the EdTech-a-thon</h2>
+      <h2>From teacher.dev</h2>
     </div>
     <p>
-      Happy Hallways is a project from the
-      <a href="https://edtechathon.com" target="_blank" rel="noopener noreferrer">EdTech-a-thon</a>, a community of
-      builders making free tools for classrooms. It was shaped by the teachers who asked us for it. Learn more about who
-      we are and what else we're building at
-      <a href="https://edtechathon.com" target="_blank" rel="noopener noreferrer">edtechathon.com</a>.
+      Happy Hallways is a project from
+      <a href="https://teacher.dev" target="_blank" rel="noopener noreferrer">teacher.dev</a>, a community of builders
+      making free tools for classrooms. It was shaped by the teachers who asked us for it. Learn more about who we are
+      and what else we're building at
+      <a href="https://teacher.dev" target="_blank" rel="noopener noreferrer">teacher.dev</a>.
     </p>
     <figure>
       <img src="/edtechathon-2026.jpg" alt="Participants of the 2026 EdTech-a-thon" />
