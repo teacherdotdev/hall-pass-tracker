@@ -7,6 +7,8 @@ export function GET() {
   const pages = [
     { url: `${siteUrl}/welcome` },
     { url: `${siteUrl}/guides` },
+    { url: `${siteUrl}/about` },
+    { url: `${siteUrl}/privacy` },
     ...guides.map((guide) => ({ url: guideUrl(guide), updated: guide.updated })),
   ];
   const urls = pages

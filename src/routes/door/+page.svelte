@@ -236,7 +236,11 @@
   }
 </script>
 
-<svelte:head><title>Happy Hallways kiosk</title></svelte:head>
+<svelte:head>
+  <title>Happy Hallways kiosk</title>
+  <!-- The kiosk screen is for a classroom door, not for search results. -->
+  <meta name="robots" content="noindex" />
+</svelte:head>
 
 <!-- Closing the kiosk stops students signing out, and may strand passes not yet sent. -->
 <svelte:window onbeforeunload={(event) => askBeforeLeaving(event, local || paired)} />

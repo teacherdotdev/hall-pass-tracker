@@ -1,6 +1,7 @@
 <script lang="ts">
   import { afterNavigate, goto } from '$app/navigation';
   import { page, updated } from '$app/state';
+  import { onMount } from 'svelte';
   import { account, keepToSchedule, waitingRequests } from '#lib/account.svelte.ts';
   import { isPairedDevice } from '#lib/door.svelte.ts';
   import GettingStarted from '#lib/GettingStarted.svelte';
@@ -16,11 +17,21 @@
   let { children } = $props();
 
   /**
+   * About and Privacy are built in advance so search engines can read them
+   * (see their +page.ts). A built page can't know what's in this browser, so
+   * it shows an empty sidebar until it's running here, then fills it in.
+   */
+  const builtInAdvance = $derived(['/(teacher)/about', '/(teacher)/privacy'].includes(page.route.id ?? ''));
+  let running = $state(false);
+  onMount(() => (running = true));
+  const ready = $derived(running || !builtInAdvance);
+
+  /**
    * The teacher's pages are for the teacher's laptop. A paired kiosk device, or
    * this computer while it is locked as the kiosk, goes back to the door screen.
    */
   const belongsAtDoor = $derived(
-    isPairedDevice() || (account.kiosk?.kind === 'this-computer' && account.kiosk.locked),
+    ready && (isPairedDevice() || (account.kiosk?.kind === 'this-computer' && account.kiosk.locked)),
   );
 
   $effect(() => {
@@ -28,7 +39,7 @@
   });
 
   $effect(() => {
-    if (!belongsAtDoor) refreshLink();
+    if (ready && !belongsAtDoor) refreshLink();
   });
 
   /**
@@ -37,7 +48,7 @@
    * keeps to the schedule here.
    */
   $effect(() => {
-    if (belongsAtDoor || account.kiosk?.kind === 'device') return;
+    if (!ready || belongsAtDoor || account.kiosk?.kind === 'device') return;
     keepToSchedule();
     const timer = setInterval(keepToSchedule, 15_000);
     return () => clearInterval(timer);
@@ -75,7 +86,7 @@
 
 {#if !belongsAtDoor}
   <div class="shell">
-    <Sidebar />
+    {#if ready}<Sidebar />{:else}<aside class="sidebar"></aside>{/if}
     <main class="main">
       {@render children()}
       <!-- Home places the footer itself, under its middle column, so the page fits the window without scrolling. -->
@@ -83,19 +94,21 @@
     </main>
   </div>
   <!-- Messages for every page float in this corner, above the checklist, so the page never shifts. -->
-  <div class="corner">
-    {#if updated.current}
-      <Toast icon="sparkles">
-        <div class="update">
-          <span>Happy Hallways has been updated. Refresh to get the newest version.</span>
-          <button class="btn btn-small" onclick={() => leaveTo(location.href)}>Refresh</button>
-        </div>
-      </Toast>
-    {/if}
-    <OverdueReminder />
-    {#if onboarding.showChecklist}<GettingStarted />{/if}
-  </div>
-  <Popups />
+  {#if ready}
+    <div class="corner">
+      {#if updated.current}
+        <Toast icon="sparkles">
+          <div class="update">
+            <span>Happy Hallways has been updated. Refresh to get the newest version.</span>
+            <button class="btn btn-small" onclick={() => leaveTo(location.href)}>Refresh</button>
+          </div>
+        </Toast>
+      {/if}
+      <OverdueReminder />
+      {#if onboarding.showChecklist}<GettingStarted />{/if}
+    </div>
+    <Popups />
+  {/if}
 {/if}
 
 <style>

@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { account } from '#lib/account.svelte.ts';
+  import { siteUrl } from '#lib/guides.ts';
   import Icon from '#lib/Icon.svelte';
   import { onboarding } from '#lib/onboarding.svelte.ts';
   import SiteFooter from '#lib/SiteFooter.svelte';
@@ -7,11 +9,52 @@
   import { keepOpen, steps } from '#lib/welcome/steps.ts';
   import WelcomeHeader from '#lib/welcome/WelcomeHeader.svelte';
 
-  /** Someone with work here is offered the way back to it. */
-  const returning = $derived(onboarding.welcomed || account.classes.length > 0);
+  /**
+   * Someone with work here is offered the way back to it. This page is built
+   * in advance for search engines, so it waits until it is running in this
+   * browser before looking.
+   */
+  let running = $state(false);
+  onMount(() => (running = true));
+  const returning = $derived(running && (onboarding.welcomed || account.classes.length > 0));
+
+  const title = 'Happy Hallways · A free digital hall pass for classrooms';
+  const description =
+    'A free digital hall pass for teachers. Students sign out at a kiosk by the door, and you see who’s out and how much class each student misses.';
+  const url = `${siteUrl}/welcome`;
+  const image = `${siteUrl}/og-image.png`;
+
+  // What search engines read about the app. "<" is escaped so the text can't end the script tag early.
+  const structuredData = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: 'Happy Hallways',
+    url,
+    description,
+    image,
+    applicationCategory: 'EducationalApplication',
+    operatingSystem: 'Any',
+    browserRequirements: 'Requires a modern web browser',
+    offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD' },
+    audience: { '@type': 'EducationalAudience', educationalRole: 'teacher' },
+  }).replaceAll('<', '\\u003c');
 </script>
 
-<svelte:head><title>Happy Hallways · A free classroom hall pass</title></svelte:head>
+<svelte:head>
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href={url} />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Happy Hallways" />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url" content={url} />
+  <meta property="og:image" content={image} />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  {@html `<script type="application/ld+json">${structuredData}</script>`}
+</svelte:head>
 
 <div class="landing">
   <WelcomeHeader>
@@ -32,7 +75,9 @@
           much class each student misses, without stopping your lesson.
         </p>
         <a class="cta" href="/welcome/tour">Get started <Icon name="arrow-right" size={18} /></a>
-        <p class="fineprint">Runs in your browser. Nothing to install, no account to make.</p>
+        <p class="fineprint">
+          <strong>Free forever.</strong> Runs in your browser. Nothing to install, no account to make.
+        </p>
       </div>
       <StepArt step="kiosk" />
     </section>
@@ -124,6 +169,11 @@
     margin-top: 14px;
     color: var(--faint);
     font-size: 13.5px;
+  }
+
+  .fineprint strong {
+    color: var(--accent);
+    font-weight: 800;
   }
 
   .band {
