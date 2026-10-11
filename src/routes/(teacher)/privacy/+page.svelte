@@ -1,8 +1,22 @@
 <script lang="ts">
+  import { siteUrl } from '#lib/guides.ts';
   import { supportEmail, supportMailto } from '#lib/support.ts';
+
+  const title = 'Privacy · Happy Hallways digital hall pass';
+  const description =
+    'Happy Hallways keeps your classes and passes in your own browser. No accounts, no cookies, no ads, and only a first name and a few letters of the last.';
 </script>
 
-<svelte:head><title>Privacy · Happy Hallways</title></svelte:head>
+<svelte:head>
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href="{siteUrl}/privacy" />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url" content="{siteUrl}/privacy" />
+  <meta property="og:image" content="{siteUrl}/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+</svelte:head>
 
 <div class="page site-prose">
   <header>

@@ -2,16 +2,20 @@
   import { guides, siteUrl } from '#lib/guides.ts';
   import Icon from '#lib/Icon.svelte';
 
-  const description = 'Step-by-step guides for setting up Happy Hallways, the free digital hall pass for teachers.';
+  const title = 'Happy Hallways guides: set up your digital hall pass';
+  const description =
+    'Short, step-by-step guides with screenshots for Happy Hallways, the free digital hall pass: separate bathroom lines, no-pass times and more.';
 </script>
 
 <svelte:head>
-  <title>Guides · Happy Hallways</title>
+  <title>{title}</title>
   <meta name="description" content={description} />
   <link rel="canonical" href="{siteUrl}/guides" />
-  <meta property="og:title" content="Happy Hallways Guides" />
+  <meta property="og:title" content={title} />
   <meta property="og:description" content={description} />
   <meta property="og:url" content="{siteUrl}/guides" />
+  <meta property="og:image" content="{siteUrl}/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
 </svelte:head>
 
 <div class="index">

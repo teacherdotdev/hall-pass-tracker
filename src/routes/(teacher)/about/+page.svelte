@@ -1,8 +1,22 @@
 <script lang="ts">
+  import { siteUrl } from '#lib/guides.ts';
   import { supportEmail, supportMailto } from '#lib/support.ts';
+
+  const title = 'About Happy Hallways · A free hall pass from teacher.dev';
+  const description =
+    'Happy Hallways is a free digital hall pass from teacher.dev, a community building free classroom tools. No paywalls, no ads, no tracking.';
 </script>
 
-<svelte:head><title>About · Happy Hallways</title></svelte:head>
+<svelte:head>
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href="{siteUrl}/about" />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url" content="{siteUrl}/about" />
+  <meta property="og:image" content="{siteUrl}/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+</svelte:head>
 
 <div class="page site-prose">
   <header>
@@ -17,14 +31,14 @@
   <section class="card">
     <div class="card-heading">
       <img src="/edtechathon-logo.svg" alt="" width="40" height="40" />
-      <h2>From the EdTech-a-thon</h2>
+      <h2>From teacher.dev</h2>
     </div>
     <p>
-      Happy Hallways is a project from the
-      <a href="https://edtechathon.com" target="_blank" rel="noopener noreferrer">EdTech-a-thon</a>, a community of
-      builders making free tools for classrooms. It was shaped by the teachers who asked us for it. Learn more about who
-      we are and what else we're building at
-      <a href="https://edtechathon.com" target="_blank" rel="noopener noreferrer">edtechathon.com</a>.
+      Happy Hallways is a project from
+      <a href="https://teacher.dev" target="_blank" rel="noopener noreferrer">teacher.dev</a>, a community of builders
+      making free tools for classrooms. It was shaped by the teachers who asked us for it. Learn more about who we are
+      and what else we're building at
+      <a href="https://teacher.dev" target="_blank" rel="noopener noreferrer">teacher.dev</a>.
     </p>
     <figure>
       <img src="/edtechathon-2026.jpg" alt="Participants of the 2026 EdTech-a-thon" />
