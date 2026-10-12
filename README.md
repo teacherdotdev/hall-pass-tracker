@@ -75,6 +75,11 @@ the relay during `bun run dev`. Without them, devices still connect wherever
 the network allows a direct connection. Add `VITE_FORCE_TURN=true` to
 `.env.local` to send every connection through the relay, to test it.
 
+Some school filters block the name `turn.cloudflare.com`, so `/api/turn` also
+offers the plain (non-TLS) relay addresses as `turn.happyhallways.com` and
+`turn.teacher.dev`. Each is a DNS-only (grey cloud) CNAME to
+`turn.cloudflare.com`; a proxied record would break the relay.
+
 To try a laptop and a kiosk in one browser, open them at two different
 addresses, e.g. `http://127.0.0.1:8000` and `http://192.168.0.29:8000`. Each
 address keeps its own saved data, just like two separate devices.
