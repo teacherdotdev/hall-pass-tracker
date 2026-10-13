@@ -53,7 +53,8 @@
 
   // A tip waits until what it points at has settled on the page, so it never
   // flashes up while the teacher is on their way somewhere else, then follows
-  // it as the page scrolls.
+  // it as the page scrolls. It steps aside while a dialog is open, and comes
+  // back when the dialog closes.
   let target = $state<DOMRect | null>(null);
   const tip = $derived(shownNews.length ? null : (tour[0] ?? null));
   $effect(() => {
@@ -62,7 +63,8 @@
     const since = Date.now();
     const find = () => {
       const element = document.querySelector(`[data-tip="${id}"]`);
-      target = element && Date.now() - since >= 700 ? element.getBoundingClientRect() : null;
+      const dialogOpen = document.querySelector('[aria-modal="true"]');
+      target = element && !dialogOpen && Date.now() - since >= 700 ? element.getBoundingClientRect() : null;
     };
     find();
     const timer = setInterval(find, 400);
@@ -171,7 +173,8 @@
   </div>
 {/if}
 
-<svelte:window onkeydown={(event) => event.key === 'Escape' && tip && !shownNews.length && endTour()} />
+<!-- Escape ends the tour only while a tip is showing; otherwise it belongs to the open dialog. -->
+<svelte:window onkeydown={(event) => event.key === 'Escape' && tip && target && !shownNews.length && endTour()} />
 
 <style>
   .whats-changed {
@@ -212,7 +215,7 @@
     font-size: 18px;
   }
 
-  /* Below the corner messages (Overdue, the checklist), so a tip never hides them. */
+  /* Below the corner messages (Overdue, the checklist), so a tip never hides them, and below dialogs. */
   .spotlight {
     position: fixed;
     z-index: 40;
