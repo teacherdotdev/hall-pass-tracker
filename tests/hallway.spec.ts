@@ -339,6 +339,46 @@ test('a destination can have a time limit', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Edit Nurse' })).toBeHidden();
 });
 
+test('a kiosk with a long list of destinations lets students reach every one', async ({ page }) => {
+  const labels = Array.from({ length: 18 }, (_, index) => `Room ${index + 1}`);
+  for (const size of [
+    { width: 1280, height: 650 },
+    { width: 390, height: 664 },
+  ]) {
+    await page.setViewportSize(size);
+    await page.goto('/door');
+    await page.evaluate((labels) => {
+      const classId = 'period-1';
+      const setup = {
+        classes: [{ id: classId, name: 'Period 1', noPassTimes: [], students: [{ id: 'jordan', name: 'Jordan E.' }] }],
+        destinations: labels.map((label, index) => ({ id: `room-${index}`, label, minutes: 5, color: 'blue', icon: 'toilet', limit: null })),
+        passLimit: 1,
+        lineEnabled: false,
+        passAllowance: { enabled: false, passes: 3, per: 'week', whenUsedUp: 'stop', since: new Date().toISOString() },
+        countedPasses: [],
+        extraPassGifts: [],
+        activeClass: { id: classId, changedAt: new Date().toISOString() },
+        pin: '2468',
+        passes: [],
+      };
+      localStorage.setItem(
+        'hallway.door',
+        JSON.stringify({ laptopPeerId: 'laptop', kioskId: 'k', secret: 's', setup, activeClass: setup.activeClass, passes: [], outbox: [] }),
+      );
+    }, labels);
+    await page.reload();
+
+    await page.getByRole('button', { name: /Jordan E\./ }).click();
+    // The last destination and Cancel are on screen, or the pop-up scrolls to them.
+    for (const button of [page.getByRole('button', { name: /^Room 18/ }), page.getByRole('button', { name: 'Cancel' })]) {
+      await button.scrollIntoViewIfNeeded();
+      await expect(button).toBeInViewport({ ratio: 1 });
+    }
+    await page.getByRole('button', { name: /^Room 18/ }).click();
+    await expect(page.getByText('Pass approved', { exact: true })).toBeVisible();
+  }
+});
+
 test('the pass allowance stops a student, and the teacher can let them go with the PIN', async ({ page }) => {
   await createClassWithRoster(page, 'Period 7');
   await page.getByRole('link', { name: 'Pass Options' }).click();

@@ -393,7 +393,7 @@
 
   {#if choosingFor && cls}
     <Modal overlay="overlay" labelledby="choose-title" onClose={() => (choosingFor = null)}>
-      <div class="sheet">
+      <div class="sheet" class:wide={destinations.length > 6}>
         <p class="door-eyebrow">Pass for</p>
         <h2 id="choose-title">{choosingFor.name}</h2>
         <p class="lede">Where are you going?</p>
@@ -954,12 +954,15 @@
     cursor: pointer;
   }
 
+  /* A pop-up taller than the screen scrolls, by finger or mouse, instead of being cut off. */
   :global(.overlay) {
     position: fixed;
     inset: 0;
     z-index: 10;
     display: grid;
-    place-items: center;
+    justify-items: center;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 16px;
     background: rgb(42 34 22 / 40%);
     backdrop-filter: blur(3px);
@@ -968,6 +971,8 @@
   .sheet {
     display: grid;
     gap: 16px;
+    /* Centered when it fits; when it's taller than the screen, it starts at the top so nothing is out of reach. */
+    margin-block: auto;
     width: min(560px, 100%);
     padding: 28px;
     border: 1px solid var(--door-line);
@@ -975,6 +980,11 @@
     background: #fff;
     box-shadow: 0 16px 48px rgb(42 34 22 / 18%);
     text-align: center;
+  }
+
+  /* A long list of destinations spreads into more columns, like the names behind it. */
+  .sheet.wide {
+    width: min(960px, 100%);
   }
 
   .sheet .lede {
