@@ -980,3 +980,101 @@ test('an offline kiosk reconnects with a code, the same way it paired, keeping t
   await again.getByRole('link', { name: 'History', exact: true }).click();
   await expect(again.getByRole('row', { name: /Jordan E\./ })).toContainText('Still out', { timeout: 15_000 });
 });
+
+/** The class names in the sidebar, top to bottom. */
+function sidebarClasses(page: Page) {
+  return page.locator('.sidebar .class-row .nav-link');
+}
+
+/** Three classes, made in the "wrong" order: the 4th block first. */
+async function createBlocks(page: Page) {
+  for (const name of ['4th block', '1st block', '2nd block']) await createClassWithRoster(page, name);
+  await expect(sidebarClasses(page)).toHaveText(['4th block', '1st block', '2nd block']);
+}
+
+test('a teacher drags a class to a new place in the sidebar, and it stays there everywhere', async ({ page }) => {
+  await createBlocks(page);
+  await goHome(page);
+  const first = sidebarClasses(page).first();
+  const from = (await sidebarClasses(page).nth(0).boundingBox())!;
+  const to = (await sidebarClasses(page).nth(2).boundingBox())!;
+
+  // A drag that ends back where it began changes nothing, and doesn't open the class either.
+  await page.mouse.move(from.x + 30, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 30, from.y + from.height + 12, { steps: 4 });
+  await page.mouse.move(from.x + 30, from.y + from.height / 2, { steps: 4 });
+  await page.mouse.up();
+  await expect(sidebarClasses(page)).toHaveText(['4th block', '1st block', '2nd block']);
+  await expect(page).toHaveURL(/\/$/);
+
+  // Press the 4th block and drag it below the 2nd block.
+  await page.mouse.move(from.x + 30, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 30, to.y + to.height - 2, { steps: 8 });
+  await expect(page.locator('.class-row.drop-after')).toHaveCount(1);
+  await page.mouse.up();
+  await expect(sidebarClasses(page)).toHaveText(['1st block', '2nd block', '4th block']);
+  // Letting go of a drag doesn't open the class under the mouse.
+  await expect(page).toHaveURL(/\/$/);
+
+  await page.reload();
+  await expect(sidebarClasses(page)).toHaveText(['1st block', '2nd block', '4th block']);
+  // Other lists of classes follow the same order.
+  await goHome(page);
+  await page.getByRole('button', { name: /^Class on the kiosk:/ }).click();
+  await expect(page.getByRole('menuitemradio').filter({ hasText: /block/ })).toHaveText([
+    /1st block/,
+    /2nd block/,
+    /4th block/,
+  ]);
+  await page.keyboard.press('Escape');
+
+  // A plain click still opens a class.
+  await first.click();
+  await expect(page.getByRole('heading', { name: '1st block' })).toBeVisible();
+});
+
+test('a teacher reorders classes with the keyboard', async ({ page }) => {
+  await createBlocks(page);
+  const grip = page.getByRole('button', { name: 'Move 4th block' });
+  await grip.focus();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  await expect(sidebarClasses(page)).toHaveText(['1st block', '2nd block', '4th block']);
+  await expect(grip).toBeFocused();
+  await expect(page.locator('.sidebar [aria-live]')).toHaveText('4th block moved to position 3 of 3.');
+  await page.keyboard.press('ArrowDown');
+  await expect(sidebarClasses(page)).toHaveText(['1st block', '2nd block', '4th block']);
+
+  await page.getByRole('button', { name: 'Move 2nd block' }).focus();
+  await page.keyboard.press('ArrowUp');
+  await expect(sidebarClasses(page)).toHaveText(['2nd block', '1st block', '4th block']);
+
+  await page.reload();
+  await expect(sidebarClasses(page)).toHaveText(['2nd block', '1st block', '4th block']);
+});
+
+test('on a touch screen, a class is dragged by its grip', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1024, height: 768 }, hasTouch: true });
+  const page = await context.newPage();
+  await skipTips(page);
+  await createBlocks(page);
+
+  // A finger presses the 2nd block's grip and drags it to the top.
+  const grip = (await page.getByRole('button', { name: 'Move 2nd block' }).boundingBox())!;
+  const top = (await sidebarClasses(page).first().boundingBox())!;
+  const x = grip.x + grip.width / 2;
+  const touch = await context.newCDPSession(page);
+  const finger = (type: string, y: number) =>
+    touch.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+  await finger('touchStart', grip.y + grip.height / 2);
+  for (let y = grip.y + grip.height / 2; y > top.y + 2; y -= 8) await finger('touchMove', y);
+  await finger('touchMove', top.y + 2);
+  await finger('touchEnd', top.y + 2);
+
+  await expect(sidebarClasses(page)).toHaveText(['2nd block', '4th block', '1st block']);
+  await page.reload();
+  await expect(sidebarClasses(page)).toHaveText(['2nd block', '4th block', '1st block']);
+  await context.close();
+});

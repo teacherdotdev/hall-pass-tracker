@@ -4,6 +4,7 @@
   import BrandMark from './BrandMark.svelte';
   import HelpButton from './HelpButton.svelte';
   import Icon from './Icon.svelte';
+  import SidebarClasses from './SidebarClasses.svelte';
   import StatusWidget from './StatusWidget.svelte';
 
   /** The status box first, then everything the teacher sets up. What's happening right now lives on Home. */
@@ -26,9 +27,7 @@
     </button>
     {#if classesOpen}
       <div class="nav-sub">
-        {#each account.classes as cls (cls.id)}
-          <a class="nav-link" class:active={path.startsWith(`/classes/${cls.id}`)} href="/classes/{cls.id}">{cls.name}</a>
-        {/each}
+        <SidebarClasses />
         <a class="nav-link add" class:active={path === '/classes/new'} href="/classes/new">
           <Icon name="plus" size={15} />New class
         </a>

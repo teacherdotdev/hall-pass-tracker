@@ -219,6 +219,20 @@ export function updateClass(id: string, changes: Partial<Pick<Class, 'name'>>) {
 }
 
 /**
+ * The teacher's classes are listed in the order they're saved, everywhere:
+ * the sidebar, Home, History, the schedule and the kiosk. Moving one here
+ * moves it in all of them.
+ */
+export function moveClass(id: string, toIndex: number) {
+  const fromIndex = account.classes.findIndex((cls) => cls.id === id);
+  const to = Math.max(0, Math.min(account.classes.length - 1, toIndex));
+  if (fromIndex === -1 || fromIndex === to) return;
+  const [cls] = account.classes.splice(fromIndex, 1);
+  account.classes.splice(to, 0, cls);
+  save();
+}
+
+/**
  * Deleting a class deletes its history too. The page asks before calling
  * this. Its periods stay, with no class in them.
  */
