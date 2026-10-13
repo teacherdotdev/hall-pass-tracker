@@ -4,6 +4,7 @@
   import RequestCard from '#lib/RequestCard.svelte';
 
   const allowance = $derived(account.passAllowance);
+  const classLimitChoices = Array.from({ length: 10 }, (_, index) => index + 1);
 </script>
 
 <div class="page">
@@ -16,14 +17,77 @@
   </header>
 
   <section class="card">
+    <fieldset class="limit-modes">
+      <legend>
+        <h2>How limits work</h2>
+        <p class="muted small">How many students can be out of the room at the same time.</p>
+      </legend>
+      <label class="check">
+        <input
+          type="radio"
+          name="limit-mode"
+          checked={account.limitMode === 'destination'}
+          onchange={() => setPassOptions({ limitMode: 'destination' })}
+        />
+        <span>
+          Each destination has its own limit
+          <span class="muted small">
+            Like 1 at a time for the Restroom and 3 for the Water Fountain, set on the
+            <a href="/destinations">Destinations</a> page. Each limited destination has its own line.
+          </span>
+        </span>
+      </label>
+      <label class="check">
+        <input
+          type="radio"
+          name="limit-mode"
+          checked={account.limitMode === 'class'}
+          onchange={() => setPassOptions({ limitMode: 'class' })}
+        />
+        <span>
+          One limit for the whole class
+          <span class="muted small">
+            Only so many students out at once, wherever they're going. Students still choose a destination, and it's
+            recorded. On the <a href="/destinations">Destinations</a> page, untick “Counts toward the class limit” for
+            places like the Nurse, so students going there never wait.
+          </span>
+        </span>
+      </label>
+    </fieldset>
+
+    {#if account.limitMode === 'class'}
+      <div class="option-row">
+        <div>
+          <h2>Students out at once</h2>
+          <p class="muted small">Your limits on each destination are kept, for if you switch back.</p>
+        </div>
+        <select
+          aria-label="Students out at once"
+          value={account.classLimit}
+          onchange={(event) => setPassOptions({ classLimit: Number(event.currentTarget.value) })}
+          style="width:auto"
+        >
+          {#each classLimitChoices as option (option)}<option value={option}>{option} at a time</option>{/each}
+        </select>
+      </div>
+    {/if}
+  </section>
+
+  <section class="card">
     <div class="option-row">
       <div>
         <h2>Let students line up</h2>
         <p class="muted small">
-          When a destination is full, students can join its line at the kiosk instead of being turned away. Each
-          destination has its own line. The next free spot is held for the first in line, and their name turns green
-          when it's their turn. Set how many students can be at each destination on the
-          <a href="/destinations">Destinations</a> page; one with no limit never has a line.
+          {#if account.limitMode === 'class'}
+            When the class limit is reached, students can join the line at the kiosk instead of being turned away. The
+            whole class shares one line, wherever each student is going. The next free spot is held for the first in
+            line, and their name turns green when it's their turn.
+          {:else}
+            When a destination is full, students can join its line at the kiosk instead of being turned away. Each
+            destination has its own line. The next free spot is held for the first in line, and their name turns green
+            when it's their turn. Set how many students can be at each destination on the
+            <a href="/destinations">Destinations</a> page; one with no limit never has a line.
+          {/if}
         </p>
       </div>
       <label class="switch">
@@ -128,6 +192,34 @@
 </div>
 
 <style>
+  .limit-modes {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .limit-modes legend {
+    margin-bottom: 10px;
+    padding: 0;
+  }
+
+  .limit-modes .check {
+    font-size: 14px;
+  }
+
+  .limit-modes .check .muted {
+    max-width: 60ch;
+    margin-top: 2px;
+  }
+
+  .limit-modes + .option-row {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
   .option-row {
     display: flex;
     align-items: center;

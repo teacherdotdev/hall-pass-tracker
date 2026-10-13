@@ -605,6 +605,101 @@ test('each destination has its own limit, and only limited ones have a line', as
   await expect(page.getByText('3 out', { exact: true })).toBeVisible();
 });
 
+/** Opens a destination's card on the Destinations page. */
+async function editDestination(page: Page, name: string) {
+  await page.getByLabel('Main').getByRole('link', { name: 'Destinations' }).click();
+  await page.getByRole('button', { name: new RegExp(`^${name}`) }).click();
+}
+
+test('one limit for the whole class holds everyone in one line, except where it does not count', async ({ page }) => {
+  await createClassWithRoster(page, 'Period 3');
+  await addDestination(page, 'Water', '3 at a time');
+  await addDestination(page, 'Nurse', '1 at a time');
+
+  await page.getByRole('link', { name: 'Pass Options' }).click();
+  await page.getByRole('switch', { name: 'Let students line up' }).check();
+  await page.getByRole('radio', { name: /^One limit for the whole class/ }).check();
+  await expect(page.getByLabel('Students out at once', { exact: true })).toHaveValue('1');
+
+  // The Nurse never waits for the class limit.
+  await editDestination(page, 'Nurse');
+  await expect(page.getByLabel('Students here at once')).toBeHidden();
+  await page.getByLabel(/Counts toward the class limit/).uncheck();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('You have one limit for the whole class: 1 student out at a time.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Nurse/ })).toContainText('Not limited');
+  await expect(page.getByRole('button', { name: /^Water/ })).toContainText('Counts toward class limit');
+
+  await setPin(page);
+  await page.getByRole('button', { name: 'Use this computer' }).click();
+  await page.getByRole('button', { name: 'Open kiosk screen' }).click();
+
+  await page.getByRole('button', { name: /Jordan E\./ }).click();
+  await page.getByRole('button', { name: /^Bathroom/ }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Somewhere else entirely, but one student is already out: Maya Ch. joins the one line.
+  await page.getByRole('button', { name: /Maya Ch\./ }).click();
+  await expect(page.getByRole('button', { name: /Water.*Full/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Nurse/ })).not.toContainText('Full');
+  await page.getByRole('button', { name: /^Water/ }).click();
+  await expect(page.getByText('1 student is already out.')).toBeVisible();
+  await page.getByRole('button', { name: 'Join the line' }).click();
+  await expect(page.getByText("You're 1st in line", { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(page.getByLabel('The line', { exact: true })).toContainText('Maya Ch.');
+
+  // The Nurse doesn't count: Maya Ca. goes straight there.
+  await page.getByRole('button', { name: /Maya Ca\./ }).click();
+  await page.getByRole('button', { name: /^Nurse/ }).click();
+  await expect(page.getByText('Maya Ca.: Nurse')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(page.getByText('2 out · 1 in line')).toBeVisible();
+
+  // A trip to the Nurse ending frees nothing; Jordan coming back from the Bathroom frees the spot for Maya Ch.
+  await page.getByRole('button', { name: /Maya Ca\..*Out/ }).click();
+  await expect(page.getByText(/it's your turn/)).toBeHidden();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: /Jordan E\..*Out/ }).click();
+  await expect(page.getByText("Maya Ch., it's your turn. Tap your name to go.")).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: /Maya Ch\..*Your turn/ }).click();
+  await expect(page.getByText('Maya Ch.: Water')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Switching back brings each destination's own limit back as it was.
+  await page.getByRole('button', { name: 'Teacher' }).click();
+  await page.getByLabel('PIN').fill('2468');
+  await page.getByRole('button', { name: 'Unlock' }).click();
+  await page.getByRole('button', { name: 'Exit kiosk' }).click();
+  await page.getByRole('link', { name: 'Pass Options' }).click();
+  await page.getByRole('radio', { name: /^Each destination has its own limit/ }).check();
+  await expect(page.getByLabel('Students out at once', { exact: true })).toBeHidden();
+  await page.getByLabel('Main').getByRole('link', { name: 'Destinations' }).click();
+  await expect(page.getByRole('button', { name: /^Bathroom/ })).toContainText('1 at a time');
+  await expect(page.getByRole('button', { name: /^Water/ })).toContainText('3 at a time');
+  await expect(page.getByRole('button', { name: /^Nurse/ })).toContainText('1 at a time');
+
+  // Maya Ch. is still at the Water, but the Bathroom has its own limit again.
+  await page.getByRole('link', { name: 'Kiosk', exact: true }).click();
+  await page.getByRole('button', { name: 'Open kiosk screen' }).click();
+  await page.getByRole('button', { name: /Jordan E\./ }).click();
+  await page.getByRole('button', { name: /^Bathroom/ }).click();
+  await expect(page.getByText('Jordan E.: Bathroom')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(page.getByText('2 out', { exact: true })).toBeVisible();
+
+  // And going back to one limit finds the Nurse still left out of it.
+  await page.getByRole('button', { name: 'Teacher' }).click();
+  await page.getByLabel('PIN').fill('2468');
+  await page.getByRole('button', { name: 'Unlock' }).click();
+  await page.getByRole('button', { name: 'Exit kiosk' }).click();
+  await page.getByRole('link', { name: 'Pass Options' }).click();
+  await page.getByRole('radio', { name: /^One limit for the whole class/ }).check();
+  await page.getByLabel('Main').getByRole('link', { name: 'Destinations' }).click();
+  await expect(page.getByRole('button', { name: /^Nurse/ })).toContainText('Not limited');
+});
+
 test('a blocked student asks, and the teacher approves or denies on Home', async ({ browser }) => {
   const laptop = await (await browser.newContext()).newPage();
   const tablet = await (await browser.newContext()).newPage();

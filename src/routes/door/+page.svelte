@@ -18,6 +18,7 @@
     doorSchedule,
     followSchedule,
     forgetDevice,
+    hasClassLimit,
     isFull,
     isLocal,
     joinLine,
@@ -80,11 +81,16 @@
   let switching = $state<string | null>(null);
 
   const waiting = $derived(line());
-  /** Each destination's line, in the order the destinations are listed. */
+  /**
+   * Each destination's line, in the order the destinations are listed, or,
+   * under a Class Limit, the one Class Line (with no destination of its own).
+   */
   const lines = $derived(
-    destinations
-      .map((destination) => ({ destination: destination.label, spots: line(destination.label) }))
-      .filter((each) => each.spots.length),
+    hasClassLimit()
+      ? [{ destination: null, spots: waiting }].filter((each) => each.spots.length)
+      : destinations
+          .map((destination) => ({ destination: destination.label as string | null, spots: line(destination.label) }))
+          .filter((each) => each.spots.length),
   );
   const ready = $derived(upNext(clock));
   const isUpNext = (studentId: string) => ready.some((spot) => spot.studentId === studentId);
@@ -322,13 +328,20 @@
 
     {#if cls}
       {#each lines as each (each.destination)}
-        <div class="line-strip" aria-label="The line for {each.destination}">
+        <div class="line-strip" aria-label={each.destination ? `The line for ${each.destination}` : 'The line'}>
           <strong class="line-name">
-            <DestinationIcon label={each.destination} list={destinations} size={22} />{each.destination} line
+            {#if each.destination}
+              <DestinationIcon label={each.destination} list={destinations} size={22} />{each.destination} line
+            {:else}
+              <Icon name="users" size={22} />Line
+            {/if}
           </strong>
           {#each each.spots as spot, index (spot.studentId)}
             <span class="line-spot" class:next={isUpNext(spot.studentId)}>
-              <span class="line-number">{index + 1}</span>{spot.studentName}
+              <span class="line-number">{index + 1}</span>
+              <!-- In the Class Line, each student shows where they're going. -->
+              {#if !each.destination}<DestinationIcon label={spot.destination} list={destinations} size={20} />{/if}
+              {spot.studentName}
               {#if isUpNext(spot.studentId)}· your turn!{/if}
             </span>
           {/each}

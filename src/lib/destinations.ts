@@ -115,11 +115,6 @@ export function defaultDestinations(newId: () => string): Destination[] {
   ];
 }
 
-/** "1 at a time", or "No limit" for a destination any number of students may go to at once. */
-export function limitText(destination: Destination) {
-  return destination.limit === null ? 'No limit' : `${destination.limit} at a time`;
-}
-
 /**
  * How a pass's destination should look. Passes keep the destination's name, so
  * history still reads correctly if the destination is renamed or removed; a

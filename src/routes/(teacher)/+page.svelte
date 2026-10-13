@@ -80,12 +80,14 @@
   const requests = $derived(waitingRequests());
   const out = $derived(classId ? openPasses(classId).sort((a, b) => a.outAt.localeCompare(b.outAt)) : []);
   const waiting = $derived(account.line.filter((spot) => spot.classId === classId));
-  /** Each destination has its own line. */
+  /** Each destination has its own line; under a Class Limit there is one Class Line, named by no destination. */
   const lines = $derived(
-    [...new Set(waiting.map((spot) => spot.destination))].map((destination) => ({
-      destination,
-      spots: waiting.filter((spot) => spot.destination === destination),
-    })),
+    account.limitMode === 'class'
+      ? [{ destination: null, spots: waiting }].filter((each) => each.spots.length)
+      : [...new Set(waiting.map((spot) => spot.destination))].map((destination) => ({
+          destination: destination as string | null,
+          spots: waiting.filter((spot) => spot.destination === destination),
+        })),
   );
 
   /** "This class" starts when it came on the kiosk, or this morning if that was before today. */
@@ -209,7 +211,7 @@
   const blockText: Record<Block, (request: PassRequest) => string> = {
     allowance: () => 'Out of passes',
     'no-pass': () => 'No-pass time',
-    full: (request) => `${request.destination} is full`,
+    full: (request) => (account.limitMode === 'class' ? 'Class limit reached' : `${request.destination} is full`),
   };
 
   function ago(when: string) {
@@ -304,13 +306,13 @@
           {/if}
           {#each lines as each (each.destination)}
             <div class="stack" style="gap:8px">
-              <p class="eyebrow">In line for {each.destination} ({each.spots.length})</p>
+              <p class="eyebrow">{each.destination ? `In line for ${each.destination}` : 'In line'} ({each.spots.length})</p>
               <ol class="line-list">
                 {#each each.spots as spot, index (spot.studentId)}
                   <li>
                     <span class="line-position">{index + 1}</span>
                     <strong>{spot.studentName}</strong>
-                    <span class="muted small">since {time(spot.joinedAt)}</span>
+                    <span class="muted small">{each.destination ? '' : `for ${spot.destination}, `}since {time(spot.joinedAt)}</span>
                   </li>
                 {/each}
               </ol>

@@ -34,7 +34,7 @@ export const guides: Guide[] = [
       description:
         'Give the girls’ and boys’ bathrooms (or any two bathrooms) their own hall pass line in Happy Hallways, so students waiting for one never hold up the other.',
     },
-    updated: '2026-10-06',
+    updated: '2026-10-13',
   },
   {
     slug: 'schedule-no-pass-times',

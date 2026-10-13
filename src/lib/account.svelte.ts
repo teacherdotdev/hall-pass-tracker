@@ -1,5 +1,6 @@
 import { defaultAllowance, passCounts, windowStart } from './allowance';
 import { defaultDestinations, knownIcon } from './destinations';
+import { countsTowardClassLimit } from './limits';
 import type { IconName } from './icons';
 import { endUnseen, mergeInto, newId, now } from './passes';
 import { displayName, type ImportPlan } from './roster';
@@ -34,6 +35,8 @@ function blankAccount(): Account {
     passes: [],
     lineEnabled: false,
     line: [],
+    limitMode: 'destination',
+    classLimit: 1,
     passAllowance: defaultAllowance(),
     schedules: [],
     currentScheduleId: null,
@@ -56,6 +59,8 @@ function blankAccount(): Account {
  * - Destinations used to be a list on each class; they became one shared list.
  * - The Pass Limit used to be one number for every destination (and before
  *   that, one per class); each destination now has its own. See docs/adr/0007.
+ *   A teacher may since choose one Class Limit instead; everyone who saved
+ *   before that keeps a limit on each destination. See docs/adr/0010.
  * - The teacher used to give Permissions from the laptop ahead of time;
  *   students now send Requests instead, so unused ones are dropped. See
  *   docs/adr/0009.
@@ -65,7 +70,9 @@ function blankAccount(): Account {
  * - "First N minutes of every class" used to be rules across a schedule; each
  *   period now has its own. See EdgeRule.
  */
-type SavedAccount = Omit<Account, 'destinations' | 'classes' | 'schedules' | 'seenPopups'> & {
+type SavedAccount = Omit<Account, 'destinations' | 'classes' | 'schedules' | 'seenPopups' | 'limitMode' | 'classLimit'> & {
+  limitMode?: Account['limitMode'];
+  classLimit?: number;
   schedules?: Schedule[];
   destinations?: (Omit<Destination, 'limit'> & { limit?: number | null })[];
   passLimit?: number;
@@ -100,6 +107,8 @@ function upgrade(saved: SavedAccount): Account {
     if (destination.limit === undefined) destination.limit = oldLimit;
   }
   delete saved.passLimit;
+  saved.limitMode ??= 'destination';
+  saved.classLimit ??= 1;
   saved.passAllowance ??= defaultAllowance();
   delete saved.permissions;
   delete saved.extraPassGifts;
@@ -445,7 +454,11 @@ export function moveWarning(toClassId: string) {
 // Pass Options and the Line
 // ---------------------------------------------------------------------------
 
-export function setPassOptions(options: { lineEnabled?: boolean }) {
+/**
+ * Switching between a limit on each destination and one Class Limit keeps the
+ * other way's numbers, so switching back finds them as they were.
+ */
+export function setPassOptions(options: Partial<Pick<Account, 'lineEnabled' | 'limitMode' | 'classLimit'>>) {
   Object.assign(account, options);
   if (account.lineEnabled === false) account.line = [];
   save();
@@ -725,8 +738,10 @@ export function doorSetup(): DoorSetup {
         .filter((student) => student.status === 'current')
         .map((student) => ({ id: student.id, name: displayName(student), exempt: student.exempt })),
     })),
-    destinations: account.destinations,
+    destinations: account.limitMode === 'class' ? classLimitOnEachDestination() : account.destinations,
     lineEnabled: account.lineEnabled,
+    limitMode: account.limitMode,
+    classLimit: account.classLimit,
     passAllowance: account.passAllowance,
     countedPasses: account.passAllowance.enabled ? countedPasses() : [],
     activeClass: account.activeClass,
@@ -739,12 +754,27 @@ export function doorSetup(): DoorSetup {
 }
 
 /**
+ * A kiosk on the version before Class Limits, until it refreshes, knows only a
+ * limit on each destination. Giving every destination that counts the Class
+ * Limit is the closest it can come: the Nurse still never waits, though each
+ * destination fills on its own rather than together. A kiosk on this version
+ * reads `limitMode` and ignores these.
+ */
+function classLimitOnEachDestination() {
+  return account.destinations.map((destination) => ({
+    ...destination,
+    limit: countsTowardClassLimit(destination) ? account.classLimit : null,
+  }));
+}
+
+/**
  * A kiosk still on the version before per-destination limits enforces one
- * limit on everyone out at once. The largest destination limit keeps it working
- * as it did before the update, until the teacher changes a destination or the
- * kiosk refreshes.
+ * limit on everyone out at once: the Class Limit, if the teacher has one.
+ * Otherwise the largest destination limit keeps it working as it did before
+ * the update, until the teacher changes a destination or the kiosk refreshes.
  */
 function forOlderKiosks() {
+  if (account.limitMode === 'class') return { passLimit: account.classLimit };
   const limits = account.destinations.flatMap((destination) => (destination.limit === null ? [] : [destination.limit]));
   return { passLimit: limits.length ? Math.max(...limits) : 99 };
 }

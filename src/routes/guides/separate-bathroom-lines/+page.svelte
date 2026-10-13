@@ -99,10 +99,17 @@
   <section class="guide-section" id="if-it-isnt-working">
     <h2>If it isn’t working<SectionLink id="if-it-isnt-working" /></h2>
     <dl>
+      <dt>There’s no “Students here at once” when I edit a destination.</dt>
+      <dd>
+        You have one limit for the whole class. On the Pass Options page, under <strong>How limits work</strong>, choose
+        <strong>Each destination has its own limit</strong>. The limits you set before come back as they were.
+      </dd>
       <dt>Students waiting for one bathroom hold up the other.</dt>
       <dd>
-        The kiosk may still be running an older version of Happy Hallways. Reload the kiosk page (or close it and open
-        it again). It also updates itself after a minute with nobody touching it.
+        Check that Pass Options says <strong>Each destination has its own limit</strong>: with one limit for the whole
+        class, everyone shares one line. If it does, the kiosk may still be running an older version of Happy
+        Hallways. Reload the kiosk page (or close it and open it again). It also updates itself after a minute with
+        nobody touching it.
       </dd>
       <dt>Students are told to wait, but can’t join a line.</dt>
       <dd>Lines are off. Turn on <strong>Let students line up</strong> on the Pass Options page (step 5).</dd>

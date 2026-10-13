@@ -2,7 +2,7 @@
   import { account } from '#lib/account.svelte.ts';
   import DestinationDialog from '#lib/DestinationDialog.svelte';
   import DestinationIcon from '#lib/DestinationIcon.svelte';
-  import { limitText } from '#lib/destinations.ts';
+  import { classLimitText, limitText } from '#lib/limits.ts';
   import Icon from '#lib/Icon.svelte';
   import { updateOnboarding } from '#lib/onboarding.svelte.ts';
   import type { Destination } from '#lib/types.ts';
@@ -33,7 +33,7 @@
         <div>
           <strong>{destination.label}</strong>
           <p class="muted small">
-            {destination.minutes ? `${destination.minutes} minutes` : 'No time limit'} · {limitText(destination)}
+            {destination.minutes ? `${destination.minutes} minutes` : 'No time limit'} · {limitText(account, destination)}
           </p>
         </div>
       </button>
@@ -42,6 +42,13 @@
       <Icon name="plus" size={22} />Add destination
     </button>
   </div>
+
+  {#if account.limitMode === 'class'}
+    <p class="muted small">
+      You have one limit for the whole class: {classLimitText(account.classLimit)}. Change it in
+      <a href="/pass-options">Pass Options</a>.
+    </p>
+  {/if}
 
   {#if !account.destinations.length}
     <div class="notice-bar"><Icon name="alert-triangle" />Students can't sign out until there's at least one destination.</div>

@@ -36,11 +36,21 @@ back.
 _Avoid_: Trip, hall pass
 
 **Pass Limit**:
-The most students who may be at one destination at the same time, such as one
-at a time for the Restroom. Each destination has its own, or none at all, so
-the Nurse and the Counselor can take any number of students while the Restroom
-takes one. There is no limit on how many students may be out in total.
+The most students who may be out at the same time. The teacher chooses, in
+Pass Options, how it works for all their classes: either each destination has
+its own, or none at all — so the Restroom takes one at a time while the Nurse
+and the Counselor take any number — or there is one Class Limit. Changing
+between the two keeps the other's settings for when the teacher changes back.
 _Avoid_: Max out, cap, capacity
+
+**Class Limit**:
+A Pass Limit shared by the whole class: the most students who may be out at
+once, wherever they are going, counting only destinations marked as counting
+toward it. Students still pick a destination, and it is still recorded. A trip
+to a destination that doesn't count, such as the Nurse, is never held up and
+takes none of its spots. While it is on, the limits on each destination are
+kept but not used.
+_Avoid_: Total limit, room limit, Pass Allowance (that is how many passes each student gets)
 
 **Pass Allowance**:
 How many passes each student may take in a stretch of time: per day, per week,
@@ -76,9 +86,10 @@ Request. It is marked so the teacher can see it later.
 _Avoid_: Extra Pass (that lifts the Pass Allowance), override, excused pass
 
 **Line Skip**:
-A pass taken at a destination that has reached its Pass Limit, ahead of anyone
-in its Line, because the teacher approved the student's Request. Those in line
-keep their places. It is marked so the teacher can see it later.
+A pass taken once its Pass Limit is reached — the destination's own, or the
+Class Limit — ahead of anyone in the Line, because the teacher approved the
+student's Request. Those in line keep their places. It is marked so the
+teacher can see it later.
 _Avoid_: Cutting, priority, override
 
 **Exempt Student**:
@@ -98,13 +109,15 @@ and if the Line is on, students may join it and go once the No-Pass Time ends.
 _Avoid_: Blackout, lockout, quiet time
 
 **Line**:
-Students waiting at the kiosk for one destination once its Pass Limit is
-reached, in the order they joined. Each destination with a Pass Limit has its
-own line, and a destination with none never has one. A teacher turns lines on
-in Pass Options. When a spot at that destination opens it is held for the first
-in its line, who is **Up Next** for it; nobody else may take it, but students
-headed somewhere else are not held up. The line belongs to the class on the kiosk and empties when
-the class changes. Being in line is not a pass and leaves nothing in history.
+Students waiting at the kiosk once a Pass Limit is reached, in the order they
+joined, each with the destination they want. Each destination with its own
+Pass Limit has its own line, and a destination with none never has one. Under
+a Class Limit there is one line, the **Class Line**, for every destination
+that counts toward it. A teacher turns lines on in Pass Options. When a spot
+opens it is held for the first in that line, who is **Up Next**; nobody else
+may take it, but students headed somewhere the line doesn't cover are not held
+up. The line belongs to the class on the kiosk and empties when the class
+changes. Being in line is not a pass and leaves nothing in history.
 _Avoid_: Queue, wait list
 
 **Schedule**:

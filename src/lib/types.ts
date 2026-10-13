@@ -28,9 +28,21 @@ export type Destination = {
   icon: DestinationIcon;
   /** Whether a trip here uses up the Pass Allowance. Missing means it does. */
   countsTowardAllowance?: boolean;
-  /** The Pass Limit: the most students here at once, or null for no limit (and so no Line). */
+  /**
+   * The Pass Limit: the most students here at once, or null for no limit (and
+   * so no Line). Kept, but not used, while the teacher has a Class Limit.
+   */
   limit: number | null;
+  /** Whether a trip here takes one of the Class Limit's spots. Missing means it does. Only used with a Class Limit. */
+  countsTowardClassLimit?: boolean;
 };
+
+/**
+ * How the Pass Limit works: each destination has its own limit and Line, or
+ * one Class Limit and one Line are shared by every destination that counts
+ * toward it. See docs/adr/0010.
+ */
+export type LimitMode = 'destination' | 'class';
 
 /**
  * The Pass Allowance: how many passes each student may take in a stretch of
@@ -46,7 +58,7 @@ export type PassAllowance = {
   since: string;
 };
 
-/** What can stop a student from leaving: a used-up Pass Allowance, No-Pass Time, or a full destination (or others ahead in its Line). */
+/** What can stop a student from leaving: a used-up Pass Allowance, No-Pass Time, or a reached Pass Limit (or others ahead in its Line). */
 export type Block = 'allowance' | 'no-pass' | 'full';
 
 /**
@@ -140,7 +152,7 @@ export type Pass = {
   extra?: boolean;
   /** Taken during No-Pass Time, with the teacher's permission. */
   noPassException?: boolean;
-  /** Taken while the destination was full, ahead of its Line, with the teacher's permission. */
+  /** Taken while the Pass Limit was reached, ahead of the Line, with the teacher's permission. */
   lineSkip?: boolean;
   /** Where the teacher approved the student's Request: on Home, or with the PIN at the kiosk. */
   approvedBy?: 'home' | 'pin';
@@ -153,7 +165,11 @@ export type Pass = {
   updatedAt: string;
 };
 
-/** One student waiting in a destination's Line at the kiosk. Each destination's line is the spots that name it. */
+/**
+ * One student waiting in a Line at the kiosk, and where they want to go. Each
+ * destination's line is the spots that name it; under a Class Limit, every
+ * spot for a destination that counts toward it is in the one Class Line.
+ */
 export type LineSpot = {
   studentId: string;
   studentName: string;
@@ -181,10 +197,13 @@ export type Account = {
   classes: Class[];
   destinations: Destination[];
   passes: Pass[];
-  /** Whether students may join a destination's Line once its Pass Limit is reached. */
+  /** Whether students may join a Line once its Pass Limit is reached. */
   lineEnabled: boolean;
-  /** Every destination's Line as the kiosk last reported it. The kiosk is in charge of them. */
+  /** Every Line as the kiosk last reported it. The kiosk is in charge of them. */
   line: LineSpot[];
+  limitMode: LimitMode;
+  /** The Class Limit: how many students may be out at once, when `limitMode` is "class". Kept while it isn't. */
+  classLimit: number;
   passAllowance: PassAllowance;
   /** Always at least one. */
   schedules: Schedule[];
@@ -223,8 +242,16 @@ export type CountedPass = { id: string; classId: string; studentId: string; outA
 /** Everything the laptop hands the kiosk so it can run the door on its own. */
 export type DoorSetup = {
   classes: DoorClass[];
+  /**
+   * With a Class Limit, each destination's `limit` is sent as the Class Limit
+   * (or null if it doesn't count toward it), so a kiosk on the version before
+   * Class Limits, until it refreshes, still holds students back much as it should.
+   */
   destinations: Destination[];
   lineEnabled: boolean;
+  /** Missing from a laptop on the version before Class Limits, which means "destination". */
+  limitMode?: LimitMode;
+  classLimit?: number;
   passAllowance: PassAllowance;
   /** Every pass that uses up the Pass Allowance in its current window, so the kiosk can count without the laptop. */
   countedPasses: CountedPass[];
@@ -235,7 +262,7 @@ export type DoorSetup = {
   pin: string;
   /**
    * What a kiosk still running the version before per-destination limits
-   * reads, until it refreshes: one Pass Limit for every destination. A laptop
+   * reads, until it refreshes: one Pass Limit on everyone out at once. A laptop
    * on that version sends this instead of `limit`.
    */
   passLimit?: number;
