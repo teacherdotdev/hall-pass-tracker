@@ -11,6 +11,7 @@
     cancelRequest,
     changeClass,
     checkPin,
+    checkStudentPin,
     clearLine,
     connectToLaptop,
     dismissNotice,
@@ -25,6 +26,7 @@
     leaveLine,
     line,
     lineSpotFor,
+    needsPin,
     noPassNow,
     onSchedule,
     openPassFor,
@@ -46,6 +48,7 @@
   import Icon from '#lib/Icon.svelte';
   import { askBeforeLeaving, leaveTo } from '#lib/leaving.ts';
   import Modal from '#lib/Modal.svelte';
+  import StudentPinPad from '#lib/StudentPinPad.svelte';
   import SupportDetails from '#lib/SupportDetails.svelte';
   import { serveStudentLink } from '#lib/studentLink.svelte.ts';
   import { formatClock, nextClassPeriod } from '#lib/schedule.ts';
@@ -149,7 +152,7 @@
   // survive the refresh.
   let lastTouch = $state(Date.now());
   $effect(() => {
-    const idle = !door.notice && !choosingFor && !waitingFor && !askedFor && teacher === 'closed';
+    const idle = !door.notice && !pinFor && !choosingFor && !waitingFor && !askedFor && teacher === 'closed';
     if (updated.current && idle && clock - lastTouch >= 60_000) leaveTo(location.href);
   });
 
@@ -163,7 +166,22 @@
     if (/^\d{6}$/.test(code)) pairWithCode(code);
   }
 
+  /** A student who tapped their name in a class that asks for PINs, typing theirs. */
+  let pinFor = $state(null as { id: string; name: string } | null);
+
   function tap(student: { id: string; name: string }) {
+    if (needsPin(student.id)) pinFor = student;
+    else actFor(student);
+  }
+
+  function pinTyped() {
+    const student = pinFor;
+    pinFor = null;
+    if (student) actFor(student);
+  }
+
+  /** Whatever tapping their name means right now: coming back, going, or checking on their line or Request. */
+  function actFor(student: { id: string; name: string }) {
     if (openPassFor(student.id)) {
       signBackIn(student.id);
       return;
@@ -406,6 +424,15 @@
     {/if}
 
     <button class="teacher-btn" onclick={openTeacher}><Icon name="lock" size={15} />Teacher</button>
+  {/if}
+
+  {#if pinFor}
+    <StudentPinPad
+      name={pinFor.name}
+      check={(entered) => !!pinFor && checkStudentPin(pinFor.id, entered)}
+      onPass={pinTyped}
+      onCancel={() => (pinFor = null)}
+    />
   {/if}
 
   {#if choosingFor && cls}

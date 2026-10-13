@@ -277,6 +277,17 @@ export function checkPin(pin: string) {
   return pin === setup()?.pin;
 }
 
+/** Whether a student must type their PIN after tapping their name. The laptop sends PINs only for classes that ask for them. */
+export function needsPin(studentId: string) {
+  return !!activeDoorClass()?.students.find((each) => each.id === studentId)?.pin;
+}
+
+/** The student's own PIN lets them through, and so does the teacher's, for a student who forgot theirs. */
+export function checkStudentPin(studentId: string, entered: string) {
+  const student = activeDoorClass()?.students.find((each) => each.id === studentId);
+  return !!entered && (entered === student?.pin || entered === setup()?.pin);
+}
+
 // ---------------------------------------------------------------------------
 // Writing
 // ---------------------------------------------------------------------------

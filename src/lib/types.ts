@@ -18,6 +18,11 @@ export type Student = {
    * a Pass Limit, the Line or No-Pass Time. See docs/adr/0011.
    */
   alwaysGo?: boolean;
+  /**
+   * The student's PIN: 3 to 6 digits they type at the kiosk after tapping their
+   * name, when their class asks for one. Never a real school ID. See docs/adr/0013.
+   */
+  pin?: string;
 };
 
 /**
@@ -136,6 +141,8 @@ export type Class = {
   name: string;
   students: Student[];
   createdAt: string;
+  /** Whether students in this class type their PIN at the kiosk after tapping their name. Off unless the teacher turns it on. */
+  studentPins?: boolean;
 };
 
 /** How a pass ended. Everything except "student" and "teacher" means nobody saw the return. */
@@ -249,8 +256,10 @@ export type DoorClass = {
   /**
    * `exempt` is sent true for an Always-Go Student too, so a kiosk on the
    * version before Always-Go, until it refreshes, at least lifts their Pass Allowance.
+   * `pin` is sent only while the class asks for PINs, so the kiosk asks for one
+   * exactly when a student has it. An older kiosk ignores it and asks for none.
    */
-  students: { id: string; name: string; exempt?: boolean; alwaysGo?: boolean }[];
+  students: { id: string; name: string; exempt?: boolean; alwaysGo?: boolean; pin?: string }[];
 };
 
 /** Just enough of a past pass for the kiosk to count it against the Pass Allowance. */

@@ -1,6 +1,6 @@
 <script lang="ts">
   import Modal from './Modal.svelte';
-  import { applyImport } from './account.svelte';
+  import { account, applyImport } from './account.svelte';
   import Icon from './Icon.svelte';
   import { planImport } from './roster';
   import type { Class } from './types';
@@ -15,7 +15,7 @@
    * they are, and nobody is ever removed from here: that's on the Students page.
    */
   function add() {
-    const plan = planImport(pasted, cls.students);
+    const plan = planImport(pasted, cls.students, account.pin);
     if (plan.error) {
       error = plan.error;
       return;
@@ -45,6 +45,12 @@
       Paste a list, one student per line, or choose a CSV. Happy Hallways keeps only first names plus the fewest letters of
       the last name it needs to tell students apart.
     </p>
+    {#if cls.studentPins}
+      <p class="muted small">
+        Each new student gets a PIN for the kiosk. To choose them yourself, put 3 to 6 digits at the end of each line, like
+        <code>Maya Chen, 4821</code>. Make them up; don't use real student ID numbers.
+      </p>
+    {/if}
     <textarea aria-label="One student per line" bind:value={pasted} oninput={() => (error = '')} rows="7" placeholder={'Maya Chen\nJordan Ellis'}></textarea>
     {#if error}<p class="form-error" role="alert">{error}</p>{/if}
     <div class="row">

@@ -1,13 +1,14 @@
+import { pinProblem } from './pins';
 import type { Student } from './types';
 
-/** A name as it arrived from a paste, before any of it is thrown away. */
-export type ParsedName = { firstName: string; lastName: string };
+/** A name as it arrived from a paste, before any of it is thrown away, with the student's PIN if the list had one. */
+export type ParsedName = { firstName: string; lastName: string; pin?: string };
 
 /** What an import would do, shown to the teacher before anything is saved. */
 export type ImportPlan = {
-  added: { firstName: string; lastPrefix: string }[];
-  /** Students already on the roster. Their prefix may change to keep names apart. */
-  matched: { student: Student; lastPrefix: string }[];
+  added: { firstName: string; lastPrefix: string; pin?: string }[];
+  /** Students already on the roster. Their prefix may change to keep names apart, and a PIN in the list replaces theirs. */
+  matched: { student: Student; lastPrefix: string; pin?: string }[];
   /** On the roster, but not in the pasted list. The teacher decides. */
   missing: Student[];
   /** Set when two students cannot be told apart. Nothing is saved when this is set. */
@@ -24,17 +25,28 @@ export function displayName(student: { firstName: string; lastPrefix: string }) 
 
 /** A first line naming its columns rather than a student. */
 function looksLikeHeading(line: string) {
-  return /\b(first|last|surname|name|student|pupil)\b/i.test(line);
+  return /\b(first|last|surname|name|student|pupil|pin)\b/i.test(line);
 }
 
 /**
- * Reads one line of a pasted roster. Teachers paste whatever their school's
+ * An optional PIN column: digits at the end of a line ("Maya Chen, 4821")
+ * are the student's PIN, never part of their name.
+ */
+function readLine(line: string): ParsedName | null {
+  const trimmed = line.trim().replace(/^["']|["']$/g, '');
+  const withPin = trimmed.match(/^(.*?)[\s,]+(\d+)$/);
+  if (!withPin) return readName(trimmed);
+  const name = readName(withPin[1]);
+  return name && { ...name, pin: withPin[2] };
+}
+
+/**
+ * Reads the name on one line of a pasted roster. Teachers paste whatever their school's
  * system exported, so this accepts the shapes those systems actually produce
  * rather than asking the teacher which one is correct. Where a line is
  * genuinely ambiguous the preview is what saves us, not a cleverer rule.
  */
-function readLine(line: string): ParsedName | null {
-  const trimmed = line.trim().replace(/^["']|["']$/g, '');
+function readName(trimmed: string): ParsedName | null {
   if (!trimmed) return null;
 
   const separator = trimmed.includes('\t') ? '\t' : trimmed.includes(',') ? ',' : '';
@@ -105,7 +117,7 @@ export function assignPrefixes(names: ParsedName[]) {
  * disappeared are reported rather than quietly removed — a silent replace would
  * archive a third of a class without the teacher noticing.
  */
-export function planImport(text: string, existing: Student[]): ImportPlan {
+export function planImport(text: string, existing: Student[], teacherPin = ''): ImportPlan {
   const parsed = parseRoster(text);
   const current = existing.filter((student) => student.status === 'current');
 
@@ -165,9 +177,27 @@ export function planImport(text: string, existing: Student[]): ImportPlan {
   const matched: ImportPlan['matched'] = [];
   pairs.forEach((pair, index) => {
     const entry = entries[index];
-    if (pair.student) matched.push({ student: pair.student, lastPrefix: entry.lastPrefix });
-    else added.push(entry);
+    const pin = pair.parsed.pin ? { pin: pair.parsed.pin } : {};
+    if (pair.student) matched.push({ student: pair.student, lastPrefix: entry.lastPrefix, ...pin });
+    else added.push({ ...entry, ...pin });
   });
 
-  return { added, matched, missing, error: error || ambiguity };
+  return { added, matched, missing, error: error || ambiguity || pinsError(current, matched, added, teacherPin) };
+}
+
+/** Checks each PIN in the list against the class as it would be after the import, so no two students share one. */
+function pinsError(current: Student[], matched: ImportPlan['matched'], added: ImportPlan['added'], teacherPin: string) {
+  const incoming = new Map(matched.map((change) => [change.student.id, change.pin]));
+  const after = [
+    ...current.map((student) => ({ name: displayName(student), pin: incoming.get(student.id) ?? student.pin })),
+    ...added.map((entry) => ({ name: displayName(entry), pin: entry.pin })),
+  ];
+  const listed = new Set([...matched, ...added].map((each) => each.pin));
+  for (const [index, each] of after.entries()) {
+    if (!each.pin || !listed.has(each.pin)) continue;
+    const others = after.filter((_, other) => other !== index).map((other) => other.pin);
+    const problem = pinProblem(each.pin, others, teacherPin);
+    if (problem) return `${each.name}'s PIN in your list: ${problem}`;
+  }
+  return '';
 }

@@ -19,6 +19,7 @@ import type {
   Student,
 } from './types';
 import { newsIds, seenBefore } from './popups';
+import { randomPin } from './pins';
 
 /**
  * The teacher's whole Account, kept in this browser's local storage. There is
@@ -515,12 +516,52 @@ export function applyImport(classId: string, plan: ImportPlan, removeIds: string
   for (const change of plan.matched) {
     const student = cls.students.find((each) => each.id === change.student.id);
     if (student) student.lastPrefix = change.lastPrefix;
+    if (student && change.pin) student.pin = change.pin;
   }
   for (const entry of plan.added) {
-    cls.students.push({ id: newId(), firstName: entry.firstName, lastPrefix: entry.lastPrefix, status: 'current' });
+    const student: Student = { id: newId(), firstName: entry.firstName, lastPrefix: entry.lastPrefix, status: 'current' };
+    if (entry.pin) student.pin = entry.pin;
+    cls.students.push(student);
   }
   for (const id of removeIds) removeStudentFrom(cls, id);
+  if (cls.studentPins) giveEveryonePins(cls);
   save();
+}
+
+/**
+ * Hands a random PIN to every current student who has none, unique in their
+ * class and never the teacher's. Former students' PINs stay taken, in case
+ * they're brought back.
+ */
+function giveEveryonePins(cls: Class) {
+  const taken = new Set([account.pin, ...cls.students.flatMap((student) => (student.pin ? [student.pin] : []))]);
+  for (const student of cls.students) {
+    if (student.pin || student.status !== 'current') continue;
+    student.pin = randomPin(taken);
+    taken.add(student.pin);
+  }
+}
+
+/** Turns asking for PINs at the kiosk on or off for one class. Turning it on gives a PIN to anyone without one. */
+export function setStudentPins(classId: string, on: boolean) {
+  const cls = findClass(classId);
+  if (!cls) return;
+  cls.studentPins = on || undefined;
+  if (on) giveEveryonePins(cls);
+  save();
+}
+
+/** The caller has already checked the PIN with pinProblem(). */
+export function setStudentPin(classId: string, studentId: string, pin: string) {
+  const student = findClass(classId)?.students.find((each) => each.id === studentId);
+  if (!student) return;
+  student.pin = pin;
+  save();
+}
+
+/** Whether any student in any class has this PIN, so the teacher doesn't choose it as their own. */
+export function isStudentPin(pin: string) {
+  return account.classes.some((cls) => cls.students.some((student) => student.pin === pin));
 }
 
 export function renameStudent(classId: string, studentId: string, firstName: string, lastPrefix: string) {
@@ -570,9 +611,11 @@ export function setAlwaysGo(classId: string, studentId: string, alwaysGo: boolea
 }
 
 export function restoreStudent(classId: string, studentId: string) {
-  const student = findClass(classId)?.students.find((each) => each.id === studentId);
-  if (!student) return;
+  const cls = findClass(classId);
+  const student = cls?.students.find((each) => each.id === studentId);
+  if (!cls || !student) return;
   student.status = 'current';
+  if (cls.studentPins) giveEveryonePins(cls);
   save();
 }
 
@@ -760,6 +803,7 @@ export function doorSetup(): DoorSetup {
           name: displayName(student),
           exempt: skipsAllowance(student) || undefined,
           alwaysGo: student.alwaysGo,
+          pin: cls.studentPins ? student.pin : undefined,
         })),
     })),
     destinations: account.limitMode === 'class' ? classLimitOnEachDestination() : account.destinations,

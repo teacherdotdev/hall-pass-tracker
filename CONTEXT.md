@@ -107,6 +107,22 @@ anyone else waiting. Every pass they take is recorded and marked so the
 teacher can see it later, and the kiosk never shows that they can always go.
 _Avoid_: Exempt Student (that lifts only the Pass Allowance), unlimited student, medical pass, override
 
+**PIN**:
+A few digits (3 to 6) a student types at the kiosk after tapping their name, so
+a classmate can't sign out or in as them. Each class turns PINs on or off; they
+are off unless the teacher turns them on. Happy Hallways makes up a 4-digit PIN
+for each student, different from everyone else's in the class and from the
+Teacher PIN; the teacher can change one or bring their own in the class list.
+The kiosk asks for it before anything that acts as that student, and never
+shows it. A student who forgot theirs can be let through with the Teacher PIN.
+It is never a real school ID number.
+_Avoid_: Student ID, lunch number, code, password
+
+**Teacher PIN**:
+The teacher's own 4 to 8 digits, which unlock the teacher menu at the kiosk,
+let a blocked student go, and stand in for a student's forgotten PIN.
+_Avoid_: Password, admin code
+
 **No-Pass Time**:
 A stretch of the clock when the class on the kiosk may not start passes. Most
 come from the Current Schedule and apply only while the teacher is On Schedule:
@@ -230,8 +246,8 @@ whole. A student who has history is never truly deleted.
 _Avoid_: Archived student, deleted student, inactive student
 
 **Backup**:
-A single file holding everything the teacher's laptop knows: classes, students,
-passes, destinations, Pass Options, schedules, the kiosk pairing and the Student link. Restoring it replaces
+A single file holding everything the teacher's laptop knows: classes, students
+(with their PINs), passes, destinations, Pass Options, schedules, the kiosk pairing and the Student link. Restoring it replaces
 everything in that browser and puts the teacher back exactly where they were.
 Happy Hallways has no accounts or sign-in; the backup is the only copy that leaves the
 browser.

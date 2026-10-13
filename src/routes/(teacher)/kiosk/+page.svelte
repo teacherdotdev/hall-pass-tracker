@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import {
     account,
+    isStudentPin,
     removeKiosk,
     setDoorLocked,
     setNetworkBlocked,
@@ -26,6 +27,11 @@
     event.preventDefault();
     if (!/^\d{4,8}$/.test(newPin)) {
       pinError = 'Use 4 to 8 digits.';
+      return;
+    }
+    // A student's own PIN must never open the teacher menu at the kiosk.
+    if (isStudentPin(newPin)) {
+      pinError = 'A student has that PIN. Choose a different one.';
       return;
     }
     setPin(newPin);

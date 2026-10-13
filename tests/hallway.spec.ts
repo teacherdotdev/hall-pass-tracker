@@ -1460,3 +1460,79 @@ test('with two tabs open, one answers the student link, and the other takes over
   await expect(student.getByRole('heading', { name: 'Period 8' })).toBeVisible({ timeout: 60_000 });
   await expect(secondTab.getByText('1 student viewing right now')).toBeVisible({ timeout: 10_000 });
 });
+
+/** Taps a PIN on the kiosk's keypad, then Go. */
+async function tapPin(page: Page, pin: string) {
+  const pad = page.getByRole('dialog').filter({ hasText: 'Type your PIN' });
+  for (const digit of pin) await pad.getByRole('button', { name: digit, exact: true }).click();
+  await pad.getByRole('button', { name: 'Go' }).click();
+}
+
+test('with PINs on, students type their own PIN at the kiosk, and the teacher PIN lets a forgetful one through', async ({ page }) => {
+  await createClassWithRoster(page, 'Period 8');
+  await page.getByRole('button', { name: 'Class settings' }).click();
+  await page.getByLabel('Students enter a PIN at the kiosk').check();
+  await page.getByRole('button', { name: 'Save' }).click();
+
+  // A PIN at the end of a line is that student's; one already taken in the class is refused.
+  await page.getByRole('button', { name: 'Add students' }).click();
+  await page.getByLabel('One student per line').fill('Sam Lee, 1357\nAva Diaz 1357');
+  await page.getByRole('dialog').getByRole('button', { name: 'Add students' }).click();
+  await expect(page.getByRole('alert')).toContainText('Another student in this class has that PIN');
+  await page.getByLabel('One student per line').fill('Sam Lee, 1357');
+  await page.getByRole('dialog').getByRole('button', { name: 'Add students' }).click();
+  await expect(page.getByText(/4 students/)).toBeVisible();
+
+  // PINs are hidden on the roster until the teacher asks to see them.
+  const sam = page.getByRole('row', { name: /Sam L\./ });
+  await expect(sam).not.toContainText('1357');
+  await page.getByRole('button', { name: 'Show PINs' }).click();
+  await expect(sam).toContainText('1357');
+  await expect(page.getByRole('row', { name: /Jordan E\./ })).toContainText(/\d{4}/);
+  await page.getByRole('link', { name: 'Print PIN cards' }).click();
+  await expect(page.getByLabel('PIN cards')).toContainText('Sam L.');
+  await expect(page.getByLabel('PIN cards')).toContainText('1357');
+
+  await setPin(page);
+  await page.getByRole('button', { name: 'Use this computer' }).click();
+  await page.getByRole('button', { name: 'Open kiosk screen' }).click();
+
+  // A wrong PIN goes nowhere; Cancel goes back to the names.
+  await page.getByRole('button', { name: /Sam L\./ }).click();
+  await tapPin(page, '9999');
+  await expect(page.getByText("That PIN isn't right. Try again.")).toBeVisible();
+  await expect(page.getByText('Where are you going?')).toBeHidden();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByText('Type your PIN')).toBeHidden();
+
+  // The right PIN goes on to the destinations. A keyboard works too.
+  await page.getByRole('button', { name: /Sam L\./ }).click();
+  await page.keyboard.type('1357');
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: /^Bathroom/ }).click();
+  await expect(page.getByText('Sam L.: Bathroom')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+  // The kiosk never shows anyone's PIN.
+  await expect(page.locator('.door')).not.toContainText('1357');
+
+  // Coming back needs the PIN too.
+  await page.getByRole('button', { name: /Sam L\..*Out/ }).click();
+  await tapPin(page, '1357');
+  await expect(page.getByText('Welcome back, Sam L.')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // A student who forgot their PIN: the teacher types theirs instead.
+  await page.getByRole('button', { name: /Jordan E\./ }).click();
+  await tapPin(page, '2468');
+  await expect(page.getByText('Where are you going?')).toBeVisible();
+});
+
+test('with PINs off, tapping a name goes straight to the destinations', async ({ page }) => {
+  await createClassWithRoster(page, 'Period 9');
+  await setPin(page);
+  await page.getByRole('button', { name: 'Use this computer' }).click();
+  await page.getByRole('button', { name: 'Open kiosk screen' }).click();
+  await page.getByRole('button', { name: /Jordan E\./ }).click();
+  await expect(page.getByText('Type your PIN')).toBeHidden();
+  await expect(page.getByText('Where are you going?')).toBeVisible();
+});
