@@ -1173,3 +1173,132 @@ test('on a touch screen, a class is dragged by its grip', async ({ browser }) =>
   await expect(sidebarClasses(page)).toHaveText(['2nd block', '4th block', '1st block']);
   await context.close();
 });
+
+/** Ticks one of the boxes on a student's edit dialog, from the class's Students page. */
+async function markStudent(page: Page, student: string, box: RegExp) {
+  await page.getByRole('button', { name: `Edit ${student}` }).click();
+  await page.getByLabel(box).check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('heading', { name: `Edit ${student}` })).toBeHidden();
+}
+
+/** Leaves the kiosk screen for the teacher's pages, with the PIN. */
+async function exitKiosk(page: Page) {
+  await page.getByRole('button', { name: 'Teacher' }).click();
+  await page.getByLabel('PIN').fill('2468');
+  await page.getByRole('button', { name: 'Unlock' }).click();
+  await page.getByRole('button', { name: 'Exit kiosk' }).click();
+}
+
+test('a student who can always go passes the class limit and the Pass Allowance, but an exempt one still waits', async ({
+  page,
+}) => {
+  await createClassWithRoster(page, 'Period 5');
+  await markStudent(page, 'Maya Ca.', /Can always go/);
+  await markStudent(page, 'Maya Ch.', /Exempt from the Pass Allowance/);
+  await expect(page.getByRole('row', { name: /Maya Ca\./ })).toContainText('Can always go');
+  await expect(page.getByRole('row', { name: /Maya Ch\./ })).toContainText('Exempt');
+  await expect(page.getByRole('row', { name: /Maya Ch\./ })).not.toContainText('Can always go');
+
+  await page.getByRole('link', { name: 'Pass Options' }).click();
+  await page.getByRole('switch', { name: 'Let students line up' }).check();
+  await page.getByRole('radio', { name: /^One limit for the whole class/ }).check();
+  await page.getByRole('switch', { name: 'Pass Allowance' }).check();
+  await page.getByLabel('Passes per student').selectOption('1');
+  await page.getByLabel('Counted').selectOption('day');
+  await setPin(page);
+  await page.getByRole('button', { name: 'Use this computer' }).click();
+  await page.getByRole('button', { name: 'Open kiosk screen' }).click();
+
+  await page.getByRole('button', { name: /Jordan E\./ }).click();
+  await page.getByRole('button', { name: /^Bathroom/ }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Exempt from the allowance only: Maya Ch. still waits for the class limit.
+  await page.getByRole('button', { name: /Maya Ch\./ }).click();
+  await page.getByRole('button', { name: /^Bathroom/ }).click();
+  await expect(page.getByText('1 student is already out.')).toBeVisible();
+  await page.getByRole('button', { name: 'Join the line' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Maya Ca. can always go: straight out, past the full class limit and the line, and never told about passes.
+  await page.getByRole('button', { name: /Maya Ca\./ }).click();
+  await expect(page.getByText(/passes left|used all your passes/)).toBeHidden();
+  await page.getByRole('button', { name: /^Bathroom/ }).click();
+  await expect(page.getByText('Maya Ca.: Bathroom')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(page.getByText('2 out · 1 in line')).toBeVisible();
+
+  // Her trip takes no spot: once Jordan is back, Maya Ch. goes while Maya Ca. is still out.
+  await page.getByRole('button', { name: /Jordan E\..*Out/ }).click();
+  await expect(page.getByText("Maya Ch., it's your turn. Tap your name to go.")).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: /Maya Ch\..*Your turn/ }).click();
+  await expect(page.getByText('Maya Ch.: Bathroom')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // A second trip today, though the allowance is one a day.
+  await page.getByRole('button', { name: /Maya Ca\..*Out/ }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: /Maya Ca\./ }).click();
+  await page.getByRole('button', { name: /^Bathroom/ }).click();
+  await expect(page.getByText('Maya Ca.: Bathroom')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // History marks each of her passes, and only hers.
+  await exitKiosk(page);
+  await page.getByRole('link', { name: 'History', exact: true }).click();
+  const hers = page.getByRole('row', { name: /Maya Ca\./ });
+  await expect(hers).toHaveCount(2);
+  for (const row of await hers.all()) await expect(row).toContainText('Can always go');
+  await expect(page.getByRole('row', { name: /Maya Ch\./ })).not.toContainText('Can always go');
+  await expect(page.getByRole('row', { name: /Jordan E\./ })).not.toContainText('Can always go');
+});
+
+test('a student who can always go passes a full destination and No-Pass Time without joining a line', async ({ page }) => {
+  await createClassWithRoster(page, 'Period 6');
+  await markStudent(page, 'Maya Ca.', /Can always go/);
+  await page.getByRole('link', { name: 'Pass Options' }).click();
+  await page.getByRole('switch', { name: 'Let students line up' }).check();
+  await setPin(page);
+  await page.getByRole('button', { name: 'Use this computer' }).click();
+  await page.getByRole('button', { name: 'Open kiosk screen' }).click();
+
+  // The Bathroom takes one at a time and Jordan has it; Maya Ca. goes anyway, and joins no line.
+  await page.getByRole('button', { name: /Jordan E\./ }).click();
+  await page.getByRole('button', { name: /^Bathroom/ }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: /Maya Ca\./ }).click();
+  await page.getByRole('button', { name: /^Bathroom/ }).click();
+  await expect(page.getByText('Maya Ca.: Bathroom')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(page.getByText('2 out', { exact: true })).toBeVisible();
+
+  // Her trip takes no spot: once Jordan is back, Maya Ch. may go.
+  await page.getByRole('button', { name: /Jordan E\..*Out/ }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: /Maya Ch\./ }).click();
+  await page.getByRole('button', { name: /^Bathroom/ }).click();
+  await expect(page.getByText('Maya Ch.: Bathroom')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: /Maya Ch\..*Out/ }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: /Maya Ca\..*Out/ }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // During No-Pass Time, everyone else is held back, but Maya Ca. still goes.
+  await exitKiosk(page);
+  await goHome(page);
+  await page.getByRole('button', { name: 'No passes now' }).click();
+  await page.getByRole('button', { name: 'Open kiosk screen' }).click();
+  await expect(page.getByText('No passes right now.')).toBeVisible();
+  await page.getByRole('button', { name: /Jordan E\./ }).click();
+  await page.getByRole('button', { name: /^Bathroom/ }).click();
+  await expect(page.getByText(/Join the line to go as soon as they do/)).toBeVisible();
+  await page.getByRole('button', { name: 'Not now' }).click();
+  await page.getByRole('button', { name: /Maya Ca\./ }).click();
+  await page.getByRole('button', { name: /^Bathroom/ }).click();
+  await expect(page.getByText('Maya Ca.: Bathroom')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(page.getByRole('button', { name: /Maya Ca\..*Out/ })).toBeVisible();
+});

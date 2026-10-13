@@ -1,6 +1,6 @@
 <script lang="ts">
   import Modal from './Modal.svelte';
-  import { account, renameStudent, setExempt } from './account.svelte';
+  import { account, renameStudent, setAlwaysGo, setExempt } from './account.svelte';
   import { displayName, maxPrefix } from './roster';
   import type { Class, Student } from './types';
 
@@ -13,6 +13,8 @@
   let lastPrefix = $state(student.lastPrefix);
   // svelte-ignore state_referenced_locally
   let exempt = $state(!!student.exempt);
+  // svelte-ignore state_referenced_locally
+  let alwaysGo = $state(!!student.alwaysGo);
   let error = $state('');
 
   /** The same rule the import enforces: no two students may look alike at the kiosk. */
@@ -34,6 +36,7 @@
     }
     renameStudent(cls.id, student.id, first, prefix);
     if (exempt !== !!student.exempt) setExempt(cls.id, student.id, exempt);
+    if (alwaysGo !== !!student.alwaysGo) setAlwaysGo(cls.id, student.id, alwaysGo);
     onClose();
   }
 </script>
@@ -47,12 +50,33 @@
       <input bind:value={lastPrefix} maxlength={maxPrefix} />
     </label>
     <label class="check">
-      <input type="checkbox" bind:checked={exempt} />
+      <input type="checkbox" bind:checked={alwaysGo} />
       <span>
-        Exempt from the Pass Allowance
+        Can always go (medical / IEP / 504)
         <span class="muted small">
-          For example, an IEP or 504 plan. They never run out, and every trip is still recorded.
-          {#if !account.passAllowance.enabled}The Pass Allowance is off in Pass Options right now.{/if}
+          Nothing at the kiosk ever holds them back: no Pass Allowance, limit, line or no-pass time. They never take
+          another student's spot. Every trip is still recorded and marked in History.
+        </span>
+      </span>
+    </label>
+    <!-- Can always go includes this, so it shows ticked while that is; their own choice here comes back if it's unticked. -->
+    <label class="check">
+      <input
+        type="checkbox"
+        checked={exempt || alwaysGo}
+        disabled={alwaysGo}
+        onchange={(event) => (exempt = event.currentTarget.checked)}
+      />
+      <span>
+        Exempt from the Pass Allowance only
+        <span class="muted small">
+          {#if alwaysGo}
+            Included, because they can always go.
+          {:else}
+            They never run out of passes, but still wait for a free spot and for no-pass time to end, like everyone
+            else. Every trip is still recorded.
+            {#if !account.passAllowance.enabled}The Pass Allowance is off in Pass Options right now.{/if}
+          {/if}
         </span>
       </span>
     </label>

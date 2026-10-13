@@ -93,10 +93,19 @@ teacher can see it later.
 _Avoid_: Cutting, priority, override
 
 **Exempt Student**:
-A student the Pass Allowance does not apply to, such as one with a medical
-need written into an IEP or 504 plan. They never run out, every trip is still
+A student the Pass Allowance does not apply to. They never run out, but still
+wait for a Pass Limit and No-Pass Time like everyone else. Every trip is still
 recorded, and the kiosk never shows that they are exempt.
 _Avoid_: Unlimited student, special student, accommodation
+
+**Always-Go Student**:
+A student the teacher has marked "Can always go", usually for a medical need
+written into an IEP or 504 plan. Nothing at the kiosk ever holds them back:
+not the Pass Allowance, a Pass Limit, the Line or No-Pass Time. They never join
+a Line, and their trips take none of a Pass Limit's spots, so they never keep
+anyone else waiting. Every pass they take is recorded and marked so the
+teacher can see it later, and the kiosk never shows that they can always go.
+_Avoid_: Exempt Student (that lifts only the Pass Allowance), unlimited student, medical pass, override
 
 **No-Pass Time**:
 A stretch of the clock when the class on the kiosk may not start passes. Most

@@ -118,6 +118,11 @@
         That bathroom has no limit. Open it on the Destinations page and choose a number under
         <strong>Students here at once</strong>.
       </dd>
+      <dt>A student went to a full bathroom without waiting in line.</dt>
+      <dd>
+        They may be marked <strong>Can always go</strong> on the Students page, for a medical need or an IEP or 504
+        plan. Their trip doesn’t take anyone’s spot, and it’s marked in History.
+      </dd>
       <dt>Can two students use the same bathroom at once?</dt>
       <dd>Yes. Choose <strong>2 at a time</strong> (or more) under Students here at once.</dd>
     </dl>

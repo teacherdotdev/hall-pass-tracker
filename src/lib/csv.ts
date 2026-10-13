@@ -7,7 +7,7 @@ function cell(value: string | number) {
   return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-const headings = ['Date', 'Class', 'Student', 'Destination', 'Left', 'Returned', 'Minutes out', 'Expected', 'Overdue', 'Extra', 'No-Pass Exception', 'Line Skip', 'Approved', 'Ended by', 'Corrected'];
+const headings = ['Date', 'Class', 'Student', 'Destination', 'Left', 'Returned', 'Minutes out', 'Expected', 'Overdue', 'Extra', 'No-Pass Exception', 'Line Skip', 'Can Always Go', 'Approved', 'Ended by', 'Corrected'];
 
 const endings: Record<string, string> = {
   student: 'student',
@@ -31,7 +31,7 @@ export function historyToCsv(rows: HistoryRow[], className: (id: string) => stri
       if (row.kind === 'denied') {
         const request = row.request;
         const asked = [dayKey(request.askedAt), className(request.classId), request.studentName, request.destination, time(request.askedAt)];
-        return [...asked, '', '', '', '', '', '', '', '', 'request denied', ''];
+        return [...asked, '', '', '', '', '', '', '', '', '', 'request denied', ''];
       }
       const pass = row.pass;
       return [
@@ -47,6 +47,7 @@ export function historyToCsv(rows: HistoryRow[], className: (id: string) => stri
         pass.extra ? 'yes' : '',
         pass.noPassException ? 'yes' : '',
         pass.lineSkip ? 'yes' : '',
+        pass.alwaysGo ? 'yes' : '',
         pass.approvedBy ? approvals[pass.approvedBy] : '',
         pass.inAt ? endings[pass.endedBy ?? 'student'] : 'still out',
         pass.corrected ? 'yes' : '',

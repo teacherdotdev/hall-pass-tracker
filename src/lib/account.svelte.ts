@@ -1,4 +1,4 @@
-import { defaultAllowance, passCounts, windowStart } from './allowance';
+import { defaultAllowance, passCounts, skipsAllowance, windowStart } from './allowance';
 import { defaultDestinations, knownIcon } from './destinations';
 import { countsTowardClassLimit } from './limits';
 import type { IconName } from './icons';
@@ -560,6 +560,14 @@ export function setExempt(classId: string, studentId: string, exempt: boolean) {
   save();
 }
 
+/** An Always-Go Student is never held back by any rule. See docs/adr/0011. */
+export function setAlwaysGo(classId: string, studentId: string, alwaysGo: boolean) {
+  const student = findClass(classId)?.students.find((each) => each.id === studentId);
+  if (!student) return;
+  student.alwaysGo = alwaysGo || undefined;
+  save();
+}
+
 export function restoreStudent(classId: string, studentId: string) {
   const student = findClass(classId)?.students.find((each) => each.id === studentId);
   if (!student) return;
@@ -736,7 +744,12 @@ export function doorSetup(): DoorSetup {
       name: cls.name,
       students: cls.students
         .filter((student) => student.status === 'current')
-        .map((student) => ({ id: student.id, name: displayName(student), exempt: student.exempt })),
+        .map((student) => ({
+          id: student.id,
+          name: displayName(student),
+          exempt: skipsAllowance(student) || undefined,
+          alwaysGo: student.alwaysGo,
+        })),
     })),
     destinations: account.limitMode === 'class' ? classLimitOnEachDestination() : account.destinations,
     lineEnabled: account.lineEnabled,

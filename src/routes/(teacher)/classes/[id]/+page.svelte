@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { account, classPasses, findClass, removeStudent, restoreStudent } from '#lib/account.svelte.ts';
-  import { usedBy } from '#lib/allowance.ts';
+  import { skipsAllowance, usedBy } from '#lib/allowance.ts';
   import EditStudentDialog from '#lib/EditStudentDialog.svelte';
   import Icon from '#lib/Icon.svelte';
   import { studentSummaries } from '#lib/stats.ts';
@@ -52,13 +52,17 @@
                   <strong>{row.name}</strong>
                 </a>
                 {#if row.former}<span class="badge">Former</span>{/if}
-                {#if row.student.exempt}<span class="badge">Exempt</span>{/if}
-                {#if allowance.enabled && !row.student.exempt && !row.former && row.allowanceUsed >= allowance.passes}
+                {#if row.student.alwaysGo}
+                  <span class="badge" title="Never held back by the Pass Allowance, a limit, the line or no-pass time">Can always go</span>
+                {:else if row.student.exempt}
+                  <span class="badge" title="Exempt from the Pass Allowance, but waits for limits and no-pass time">Exempt</span>
+                {/if}
+                {#if allowance.enabled && !skipsAllowance(row.student) && !row.former && row.allowanceUsed >= allowance.passes}
                   <span class="badge warn">Out of passes</span>
                 {/if}
               </td>
               {#if allowance.enabled}
-                <td class="num">{row.student.exempt ? '–' : `${row.allowanceUsed} of ${allowance.passes}`}</td>
+                <td class="num">{skipsAllowance(row.student) ? '–' : `${row.allowanceUsed} of ${allowance.passes}`}</td>
               {/if}
               <td class="num">{row.week}</td>
               <td class="num">{row.minutesWeek}</td>

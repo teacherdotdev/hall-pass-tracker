@@ -1,6 +1,6 @@
 import type { DataConnection, Peer } from 'peerjs';
 import { account, doorSetup, keepToSchedule, receivePasses, setActiveClass, setLine } from './account.svelte';
-import { destinationCounts, passesLeftText, usedBy, usedUpText } from './allowance';
+import { destinationCounts, passesLeftText, skipsAllowance, usedBy, usedUpText } from './allowance';
 import { connectionReport, watchConnection, type ConnectionWatch } from './diagnostics';
 import { limitFor, lineOf } from './limits';
 import { dueTime, endUnseen, mergeInto, newId, now } from './passes';
@@ -167,7 +167,8 @@ function lineAt(destination: string) {
 /**
  * How many students from the class on the kiosk are taking up the spots a
  * trip to this destination needs: those at the destination itself, or, under
- * a Class Limit, those anywhere that counts toward it.
+ * a Class Limit, those anywhere that counts toward it. An Always-Go Student's
+ * trip takes no spot, so it never keeps anyone else waiting.
  */
 export function outAt(destination: string) {
   const classId = activeClassId();
@@ -176,6 +177,7 @@ export function outAt(destination: string) {
     (pass) =>
       pass.classId === classId &&
       !pass.inAt &&
+      !pass.alwaysGo &&
       (pass.destination === destination || (shared !== null && lineAt(pass.destination) === shared)),
   ).length;
 }
@@ -245,9 +247,14 @@ export function upNext(at = Date.now()): LineSpot[] {
   return line().filter((spot) => hasRoom(spot.studentId, spot.destination));
 }
 
+/** Whether a student on the kiosk is an Always-Go Student, whom no rule holds back. See docs/adr/0011. */
+function canAlwaysGo(studentId: string) {
+  return !!activeDoorClass()?.students.find((each) => each.id === studentId)?.alwaysGo;
+}
+
 /**
  * Where one student stands with the Pass Allowance, or null when it doesn't
- * apply to them (it's off, or they're an Exempt Student). The kiosk counts the
+ * apply to them (it's off, or they're an Exempt or Always-Go Student). The kiosk counts the
  * laptop's list plus its own passes, so it stays right while the laptop is closed.
  */
 export function allowanceFor(studentId: string) {
@@ -255,7 +262,7 @@ export function allowanceFor(studentId: string) {
   const cls = activeDoorClass();
   const allowance = current?.passAllowance;
   const student = cls?.students.find((each) => each.id === studentId);
-  if (!current || !cls || !allowance?.enabled || !student || student.exempt) return null;
+  if (!current || !cls || !allowance?.enabled || !student || skipsAllowance(student)) return null;
   const used = usedBy(allowance, cls.id, studentId, [...(current.countedPasses ?? []), ...allPasses()]);
   const left = Math.max(0, allowance.passes - used);
   return {
@@ -337,11 +344,12 @@ function saveLine(next: LineSpot[]) {
  * - No-Pass Time
  * - a full destination, or others ahead of them in its line
  * A student already in that destination's line was checked against their
- * allowance when they joined, so it never stops them there.
+ * allowance when they joined, so it never stops them there. Nothing ever
+ * stops an Always-Go Student.
  */
 export function blocksFor(studentId: string, destination: string): Block[] {
   const place = destinationNamed(destination);
-  if (!place) return [];
+  if (!place || canAlwaysGo(studentId)) return [];
   const inThisLine = lineSpotFor(studentId)?.destination === destination;
   const allowance = destinationCounts(place) ? allowanceFor(studentId) : null;
   const blocks: Block[] = [];
@@ -377,7 +385,7 @@ export function requestPass(studentId: string, destination: string, approvedBy?:
     return;
   }
 
-  const blocked = noPassNow();
+  const blocked = blocks.includes('no-pass') ? noPassNow() : null;
   if (!approvedBy && blocked) {
     const opens = whenPassesOpen(blocked);
     // During a No-Pass Time, a limited destination offers a place in its line.
@@ -450,6 +458,7 @@ export function requestPass(studentId: string, destination: string, approvedBy?:
     updatedAt: at,
   };
   if (!allowance) pass.counts = false;
+  if (student.alwaysGo) pass.alwaysGo = true;
   if (allowance?.usedUp) pass.extra = true;
   if (blocked) pass.noPassException = true;
   if (blocks.includes('full')) pass.lineSkip = true;

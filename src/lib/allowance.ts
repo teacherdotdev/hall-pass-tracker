@@ -1,5 +1,5 @@
 import { startOfWeek } from './stats';
-import type { CountedPass, Destination, Pass, PassAllowance } from './types';
+import type { CountedPass, Destination, Pass, PassAllowance, Student } from './types';
 
 /**
  * The Pass Allowance: how many passes each student may take per day, per week,
@@ -25,6 +25,11 @@ export function windowName(allowance: PassAllowance) {
   if (allowance.per === 'day') return 'today';
   if (allowance.per === 'week') return 'this week';
   return '';
+}
+
+/** Whether the Pass Allowance passes a student by: an Exempt Student, or an Always-Go Student. */
+export function skipsAllowance(student: Pick<Student, 'exempt' | 'alwaysGo'>) {
+  return !!student.exempt || !!student.alwaysGo;
 }
 
 export function destinationCounts(destination: Destination | undefined) {

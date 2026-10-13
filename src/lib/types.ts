@@ -11,8 +11,13 @@ export type Student = {
   lastPrefix: string;
   /** A Former Student has left the class but keeps every trip they took. */
   status: 'current' | 'former';
-  /** An Exempt Student: the Pass Allowance never applies to them. */
+  /** An Exempt Student: the Pass Allowance never applies to them. They still wait for limits and No-Pass Time. */
   exempt?: boolean;
+  /**
+   * An Always-Go Student: no rule ever holds them back — not the Pass Allowance,
+   * a Pass Limit, the Line or No-Pass Time. See docs/adr/0011.
+   */
+  alwaysGo?: boolean;
 };
 
 /**
@@ -154,6 +159,8 @@ export type Pass = {
   noPassException?: boolean;
   /** Taken while the Pass Limit was reached, ahead of the Line, with the teacher's permission. */
   lineSkip?: boolean;
+  /** Taken by an Always-Go Student, frozen when they left. It took none of any Pass Limit's spots. */
+  alwaysGo?: boolean;
   /** Where the teacher approved the student's Request: on Home, or with the PIN at the kiosk. */
   approvedBy?: 'home' | 'pin';
   outAt: string;
@@ -233,7 +240,11 @@ export type Account = {
 export type DoorClass = {
   id: string;
   name: string;
-  students: { id: string; name: string; exempt?: boolean }[];
+  /**
+   * `exempt` is sent true for an Always-Go Student too, so a kiosk on the
+   * version before Always-Go, until it refreshes, at least lifts their Pass Allowance.
+   */
+  students: { id: string; name: string; exempt?: boolean; alwaysGo?: boolean }[];
 };
 
 /** Just enough of a past pass for the kiosk to count it against the Pass Allowance. */

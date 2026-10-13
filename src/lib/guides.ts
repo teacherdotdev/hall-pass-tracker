@@ -46,7 +46,7 @@ export const guides: Guide[] = [
       description:
         'Set no-pass times in Happy Hallways, the free digital hall pass: block passes at the start and end of each period, or during an assembly, and let the kiosk follow your bell schedule.',
     },
-    updated: '2026-10-06',
+    updated: '2026-10-13',
   },
 ];
 
