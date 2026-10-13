@@ -91,6 +91,10 @@
       on Home. Or tap <strong>Teacher PIN</strong> and enter your PIN right at the kiosk. Either way, their pass is marked
       so your records stay complete. (When the kiosk is this computer, or it’s offline, only the PIN works.)
     </p>
+    <p>
+      A student you’ve marked <strong>Can always go</strong> (for a medical need, or an IEP or 504 plan) is never held
+      back by a no-pass time. They leave as usual, and their pass is marked in History.
+    </p>
     <figure>
       <img
         src="{pictures}/8-kiosk-line.png"

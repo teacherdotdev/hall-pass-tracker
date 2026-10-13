@@ -1,3 +1,7 @@
+---
+status: amended by ADR-0010
+---
+
 # Pass limits belong to destinations, with no limit on the total
 
 A teacher told us they want only one student in the restroom at a time, with a

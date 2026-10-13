@@ -30,6 +30,7 @@ const interfaceIcons = {
   'chevron-up': 'chevron-up',
   calendar: 'calendar-clock',
   copy: 'copy',
+  link: 'link',
   ban: 'ban',
   'shield-check': 'shield-check',
   'circle-play': 'circle-play',
@@ -41,6 +42,7 @@ const interfaceIcons = {
   'arrow-down': 'arrow-down',
   pause: 'circle-pause',
   'circle-slash': 'circle-slash',
+  grip: 'grip-vertical',
 };
 
 /** Icons a teacher can give a destination, in the groups the picker shows. */

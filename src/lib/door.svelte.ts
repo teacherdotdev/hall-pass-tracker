@@ -1,7 +1,8 @@
 import type { DataConnection, Peer } from 'peerjs';
 import { account, doorSetup, keepToSchedule, receivePasses, setActiveClass, setLine } from './account.svelte';
-import { destinationCounts, passesLeftText, usedBy, usedUpText } from './allowance';
+import { destinationCounts, passesLeftText, skipsAllowance, usedBy, usedUpText } from './allowance';
 import { connectionReport, watchConnection, type ConnectionWatch } from './diagnostics';
+import { limitFor, lineOf } from './limits';
 import { dueTime, endUnseen, mergeInto, newId, now } from './passes';
 import { createPeer, keepAlive, pairingPrefix } from './peer';
 import { formatClock, noPassAt, scheduledClassAt } from './schedule';
@@ -147,29 +148,62 @@ export function destinationNamed(label: string) {
   return setup()?.destinations.find((each) => each.label === label);
 }
 
-/** How many students from the class on the kiosk are at one destination right now. */
-export function outAt(destination: string) {
-  const classId = activeClassId();
-  return allPasses().filter((pass) => pass.classId === classId && pass.destination === destination && !pass.inAt).length;
+/** Whether the teacher has one Class Limit, rather than a limit on each destination. */
+export function hasClassLimit() {
+  return setup()?.limitMode === 'class';
 }
 
-/** Whether a destination has reached its Pass Limit. One with no limit is never full. */
-export function isFull(destination: string) {
-  const limit = destinationNamed(destination)?.limit;
-  return limit != null && outAt(destination) >= limit;
+/** The Line and Pass Limit a trip to this destination waits for, or null when nothing limits it. */
+function limitAt(destination: string) {
+  const current = setup();
+  return current ? limitFor(current, destination) : null;
+}
+
+function lineAt(destination: string) {
+  const current = setup();
+  return current ? lineOf(current, destination) : null;
 }
 
 /**
- * The Lines for the class on the kiosk, first in line first. Each destination
- * has its own: pass a destination to get just its line.
+ * How many students from the class on the kiosk are taking up the spots a
+ * trip to this destination needs: those at the destination itself, or, under
+ * a Class Limit, those anywhere that counts toward it. An Always-Go Student's
+ * trip takes no spot, so it never keeps anyone else waiting.
+ */
+export function outAt(destination: string) {
+  const classId = activeClassId();
+  const shared = lineAt(destination);
+  return allPasses().filter(
+    (pass) =>
+      pass.classId === classId &&
+      !pass.inAt &&
+      !pass.alwaysGo &&
+      (pass.destination === destination || (shared !== null && lineAt(pass.destination) === shared)),
+  ).length;
+}
+
+/** Whether a destination's Pass Limit (or the Class Limit) is reached. One with no limit is never full. */
+export function isFull(destination: string) {
+  const limited = limitAt(destination);
+  return !!limited && outAt(destination) >= limited.limit;
+}
+
+/**
+ * The Lines for the class on the kiosk, first in line first. Pass a
+ * destination to get just the line it waits in: its own, or the Class Line.
  */
 export function line(destination?: string): LineSpot[] {
   const classId = activeClassId();
   const all = isLocal() ? account.line : (door.device?.line ?? []);
-  return all.filter((spot) => spot.classId === classId && (!destination || spot.destination === destination));
+  const which = destination === undefined ? null : lineAt(destination);
+  return all.filter(
+    (spot) =>
+      spot.classId === classId &&
+      (destination === undefined || spot.destination === destination || (which !== null && lineAt(spot.destination) === which)),
+  );
 }
 
-/** Where a student is waiting, if anywhere, with their place in that destination's line. */
+/** Where a student is waiting, if anywhere, with their place in that line. */
 export function lineSpotFor(studentId: string) {
   const spot = line().find((each) => each.studentId === studentId);
   if (!spot) return null;
@@ -192,30 +226,35 @@ export function whenPassesOpen(noPass: { end: string | null }) {
 }
 
 /**
- * Whether a student may go to a destination without waiting: it has no limit,
- * or there is a spot free once those ahead of them in its line have theirs.
+ * Whether a student may go to a destination without waiting: nothing limits
+ * it, or there is a spot free once those ahead of them in its line have theirs.
  */
 function hasRoom(studentId: string, destination: string) {
-  const limit = destinationNamed(destination)?.limit;
-  if (limit == null) return true;
+  const limited = limitAt(destination);
+  if (!limited) return true;
   const waiting = line(destination);
   const place = waiting.findIndex((spot) => spot.studentId === studentId);
   const ahead = place === -1 ? waiting.length : place;
-  return outAt(destination) + ahead < limit;
+  return outAt(destination) + ahead < limited.limit;
 }
 
 /**
  * Students in line who may go now, and are **Up Next**: a spot has opened for
- * them at their destination, and passes are allowed.
+ * them, and passes are allowed.
  */
 export function upNext(at = Date.now()): LineSpot[] {
   if (noPassNow(at)) return [];
   return line().filter((spot) => hasRoom(spot.studentId, spot.destination));
 }
 
+/** Whether a student on the kiosk is an Always-Go Student, whom no rule holds back. See docs/adr/0011. */
+function canAlwaysGo(studentId: string) {
+  return !!activeDoorClass()?.students.find((each) => each.id === studentId)?.alwaysGo;
+}
+
 /**
  * Where one student stands with the Pass Allowance, or null when it doesn't
- * apply to them (it's off, or they're an Exempt Student). The kiosk counts the
+ * apply to them (it's off, or they're an Exempt or Always-Go Student). The kiosk counts the
  * laptop's list plus its own passes, so it stays right while the laptop is closed.
  */
 export function allowanceFor(studentId: string) {
@@ -223,7 +262,7 @@ export function allowanceFor(studentId: string) {
   const cls = activeDoorClass();
   const allowance = current?.passAllowance;
   const student = cls?.students.find((each) => each.id === studentId);
-  if (!current || !cls || !allowance?.enabled || !student || student.exempt) return null;
+  if (!current || !cls || !allowance?.enabled || !student || skipsAllowance(student)) return null;
   const used = usedBy(allowance, cls.id, studentId, [...(current.countedPasses ?? []), ...allPasses()]);
   const left = Math.max(0, allowance.passes - used);
   return {
@@ -236,6 +275,17 @@ export function allowanceFor(studentId: string) {
 
 export function checkPin(pin: string) {
   return pin === setup()?.pin;
+}
+
+/** Whether a student must type their PIN after tapping their name. The laptop sends PINs only for classes that ask for them. */
+export function needsPin(studentId: string) {
+  return !!activeDoorClass()?.students.find((each) => each.id === studentId)?.pin;
+}
+
+/** The student's own PIN lets them through, and so does the teacher's, for a student who forgot theirs. */
+export function checkStudentPin(studentId: string, entered: string) {
+  const student = activeDoorClass()?.students.find((each) => each.id === studentId);
+  return !!entered && (entered === student?.pin || entered === setup()?.pin);
 }
 
 // ---------------------------------------------------------------------------
@@ -273,8 +323,9 @@ export function signBackIn(studentId: string) {
   if (!pass) return;
   const at = now();
   record([{ ...$state.snapshot(pass), inAt: at, endedBy: 'student', updatedAt: at }]);
-  // The spot they leave is held for whoever is first in that destination's line.
-  const next = upNext().find((spot) => spot.destination === pass.destination);
+  // The spot they leave is held for whoever is first in the line it belongs to.
+  const freed = lineAt(pass.destination);
+  const next = upNext().find((spot) => freed !== null && lineAt(spot.destination) === freed);
   showNotice(
     {
       kind: 'returned',
@@ -304,11 +355,12 @@ function saveLine(next: LineSpot[]) {
  * - No-Pass Time
  * - a full destination, or others ahead of them in its line
  * A student already in that destination's line was checked against their
- * allowance when they joined, so it never stops them there.
+ * allowance when they joined, so it never stops them there. Nothing ever
+ * stops an Always-Go Student.
  */
 export function blocksFor(studentId: string, destination: string): Block[] {
   const place = destinationNamed(destination);
-  if (!place) return [];
+  if (!place || canAlwaysGo(studentId)) return [];
   const inThisLine = lineSpotFor(studentId)?.destination === destination;
   const allowance = destinationCounts(place) ? allowanceFor(studentId) : null;
   const blocks: Block[] = [];
@@ -344,11 +396,11 @@ export function requestPass(studentId: string, destination: string, approvedBy?:
     return;
   }
 
-  const blocked = noPassNow();
+  const blocked = blocks.includes('no-pass') ? noPassNow() : null;
   if (!approvedBy && blocked) {
     const opens = whenPassesOpen(blocked);
-    // During a No-Pass Time, a destination with a limit offers a place in its line.
-    const mayLineUp = setup()?.lineEnabled && place.limit !== null && !inThisLine;
+    // During a No-Pass Time, a limited destination offers a place in its line.
+    const mayLineUp = setup()?.lineEnabled && lineAt(destination) !== null && !inThisLine;
     showNotice(
       mayLineUp
         ? {
@@ -365,26 +417,36 @@ export function requestPass(studentId: string, destination: string, approvedBy?:
     return;
   }
 
-  // A free spot is held for whoever is first in that destination's line.
+  // A free spot is held for whoever is first in the line.
   if (!approvedBy && blocks.includes('full')) {
+    // Already in the Class Line and changing where they're going: they keep their place.
+    if (spot && !inThisLine && lineAt(spot.destination) === lineAt(destination)) {
+      joinLine(studentId, destination);
+      return;
+    }
     const out = outAt(destination);
     const waiting = line(destination).length;
     const someone = (count: number) => `${count} ${count === 1 ? 'student is' : 'students are'}`;
+    const andWaiting = waiting ? `, and ${waiting} ${waiting === 1 ? 'is' : 'are'} waiting` : '';
+    // Under a Class Limit, the count is of everyone out, wherever they went.
+    const shared = hasClassLimit();
     showNotice(
       setup()?.lineEnabled && !inThisLine
         ? {
             kind: 'denied',
             title: 'Join the line?',
-            message: isFull(destination)
-              ? `${destination} is full${waiting ? `, and ${waiting} ${waiting === 1 ? 'is' : 'are'} waiting` : ''}.`
-              : `${someone(waiting)} already waiting for ${destination}.`,
+            message: !isFull(destination)
+              ? `${someone(waiting)} already waiting${shared ? '' : ` for ${destination}`}.`
+              : shared
+                ? `${someone(out)} already out${andWaiting}.`
+                : `${destination} is full${andWaiting}.`,
             offerLine: { studentId, destination },
             offerTeacher,
           }
         : {
             kind: 'denied',
             title: 'Please wait in class',
-            message: `${someone(out)} already at ${destination}. Try again when someone comes back.`,
+            message: `${someone(out)} already ${shared ? 'out' : `at ${destination}`}. Try again when someone comes back.`,
             offerTeacher,
           },
       15,
@@ -407,6 +469,7 @@ export function requestPass(studentId: string, destination: string, approvedBy?:
     updatedAt: at,
   };
   if (!allowance) pass.counts = false;
+  if (student.alwaysGo) pass.alwaysGo = true;
   if (allowance?.usedUp) pass.extra = true;
   if (blocked) pass.noPassException = true;
   if (blocks.includes('full')) pass.lineSkip = true;
@@ -510,19 +573,31 @@ function answer(requestId: string, approve: boolean) {
   else door.denied[request.studentId] = Date.now();
 }
 
-/** Joins a destination's line. A student waits in one line at a time, so joining another leaves the first. */
+/**
+ * Joins the line a destination waits in. A student waits in one line at a
+ * time, so joining another leaves the first; in the Class Line, they keep
+ * their place but change where they're going.
+ */
 export function joinLine(studentId: string, destination: string) {
   const cls = activeDoorClass();
   const student = cls?.students.find((each) => each.id === studentId);
-  if (!cls || !student || lineSpotFor(studentId)?.destination === destination) return;
+  const current = lineSpotFor(studentId);
+  if (!cls || !student || current?.destination === destination) return;
+  const keepsPlace = !!current && lineAt(current.destination) !== null && lineAt(current.destination) === lineAt(destination);
   const spot: LineSpot = { studentId, studentName: student.name, classId: cls.id, destination, joinedAt: now() };
-  saveLine([...line().filter((each) => each.studentId !== studentId), spot]);
+  saveLine(
+    keepsPlace
+      ? line().map((each) => (each.studentId === studentId ? { ...each, destination } : each))
+      : [...line().filter((each) => each.studentId !== studentId), spot],
+  );
   const position = line(destination).length;
   showNotice(
     {
       kind: 'returned',
       eyebrow: 'In line',
-      title: `You're ${ordinal(position)} in line for ${destination}`,
+      title: hasClassLimit()
+        ? `You're ${ordinal(position)} in line`
+        : `You're ${ordinal(position)} in line for ${destination}`,
       message: 'Watch for your name. When it turns green, tap it to go.',
     },
     5,

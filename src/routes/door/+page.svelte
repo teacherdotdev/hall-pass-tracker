@@ -11,6 +11,7 @@
     cancelRequest,
     changeClass,
     checkPin,
+    checkStudentPin,
     clearLine,
     connectToLaptop,
     dismissNotice,
@@ -18,12 +19,14 @@
     doorSchedule,
     followSchedule,
     forgetDevice,
+    hasClassLimit,
     isFull,
     isLocal,
     joinLine,
     leaveLine,
     line,
     lineSpotFor,
+    needsPin,
     noPassNow,
     onSchedule,
     openPassFor,
@@ -45,7 +48,9 @@
   import Icon from '#lib/Icon.svelte';
   import { askBeforeLeaving, leaveTo } from '#lib/leaving.ts';
   import Modal from '#lib/Modal.svelte';
+  import StudentPinPad from '#lib/StudentPinPad.svelte';
   import SupportDetails from '#lib/SupportDetails.svelte';
+  import { serveStudentLink } from '#lib/studentLink.svelte.ts';
   import { formatClock, nextClassPeriod } from '#lib/schedule.ts';
 
   const local = $derived(isLocal());
@@ -80,11 +85,16 @@
   let switching = $state<string | null>(null);
 
   const waiting = $derived(line());
-  /** Each destination's line, in the order the destinations are listed. */
+  /**
+   * Each destination's line, in the order the destinations are listed, or,
+   * under a Class Limit, the one Class Line (with no destination of its own).
+   */
   const lines = $derived(
-    destinations
-      .map((destination) => ({ destination: destination.label, spots: line(destination.label) }))
-      .filter((each) => each.spots.length),
+    hasClassLimit()
+      ? [{ destination: null, spots: waiting }].filter((each) => each.spots.length)
+      : destinations
+          .map((destination) => ({ destination: destination.label as string | null, spots: line(destination.label) }))
+          .filter((each) => each.spots.length),
   );
   const ready = $derived(upNext(clock));
   const isUpNext = (studentId: string) => ready.some((spot) => spot.studentId === studentId);
@@ -123,8 +133,11 @@
 
   onMount(() => {
     // Opening the door screen locks it (on the laptop) or connects it (on a paired device).
-    if (local) setDoorLocked(true);
-    else if (paired) connectToLaptop();
+    // On the teacher's own computer, it also keeps answering the Student link.
+    if (local) {
+      setDoorLocked(true);
+      serveStudentLink();
+    } else if (paired) connectToLaptop();
     // Arriving from the QR code: pair straight away, then drop the code from the
     // address so a later reload never retries a code that has been used up.
     if (page.url.searchParams.has('code')) replaceState('/door', {});
@@ -139,7 +152,7 @@
   // survive the refresh.
   let lastTouch = $state(Date.now());
   $effect(() => {
-    const idle = !door.notice && !choosingFor && !waitingFor && !askedFor && teacher === 'closed';
+    const idle = !door.notice && !pinFor && !choosingFor && !waitingFor && !askedFor && teacher === 'closed';
     if (updated.current && idle && clock - lastTouch >= 60_000) leaveTo(location.href);
   });
 
@@ -153,7 +166,22 @@
     if (/^\d{6}$/.test(code)) pairWithCode(code);
   }
 
+  /** A student who tapped their name in a class that asks for PINs, typing theirs. */
+  let pinFor = $state(null as { id: string; name: string } | null);
+
   function tap(student: { id: string; name: string }) {
+    if (needsPin(student.id)) pinFor = student;
+    else actFor(student);
+  }
+
+  function pinTyped() {
+    const student = pinFor;
+    pinFor = null;
+    if (student) actFor(student);
+  }
+
+  /** Whatever tapping their name means right now: coming back, going, or checking on their line or Request. */
+  function actFor(student: { id: string; name: string }) {
     if (openPassFor(student.id)) {
       signBackIn(student.id);
       return;
@@ -322,13 +350,20 @@
 
     {#if cls}
       {#each lines as each (each.destination)}
-        <div class="line-strip" aria-label="The line for {each.destination}">
+        <div class="line-strip" aria-label={each.destination ? `The line for ${each.destination}` : 'The line'}>
           <strong class="line-name">
-            <DestinationIcon label={each.destination} list={destinations} size={22} />{each.destination} line
+            {#if each.destination}
+              <DestinationIcon label={each.destination} list={destinations} size={22} />{each.destination} line
+            {:else}
+              <Icon name="users" size={22} />Line
+            {/if}
           </strong>
           {#each each.spots as spot, index (spot.studentId)}
             <span class="line-spot" class:next={isUpNext(spot.studentId)}>
-              <span class="line-number">{index + 1}</span>{spot.studentName}
+              <span class="line-number">{index + 1}</span>
+              <!-- In the Class Line, each student shows where they're going. -->
+              {#if !each.destination}<DestinationIcon label={spot.destination} list={destinations} size={20} />{/if}
+              {spot.studentName}
               {#if isUpNext(spot.studentId)}· your turn!{/if}
             </span>
           {/each}
@@ -391,9 +426,18 @@
     <button class="teacher-btn" onclick={openTeacher}><Icon name="lock" size={15} />Teacher</button>
   {/if}
 
+  {#if pinFor}
+    <StudentPinPad
+      name={pinFor.name}
+      check={(entered) => !!pinFor && checkStudentPin(pinFor.id, entered)}
+      onPass={pinTyped}
+      onCancel={() => (pinFor = null)}
+    />
+  {/if}
+
   {#if choosingFor && cls}
     <Modal overlay="overlay" labelledby="choose-title" onClose={() => (choosingFor = null)}>
-      <div class="sheet">
+      <div class="sheet" class:wide={destinations.length > 6}>
         <p class="door-eyebrow">Pass for</p>
         <h2 id="choose-title">{choosingFor.name}</h2>
         <p class="lede">Where are you going?</p>
@@ -954,12 +998,15 @@
     cursor: pointer;
   }
 
+  /* A pop-up taller than the screen scrolls, by finger or mouse, instead of being cut off. */
   :global(.overlay) {
     position: fixed;
     inset: 0;
     z-index: 10;
     display: grid;
-    place-items: center;
+    justify-items: center;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 16px;
     background: rgb(42 34 22 / 40%);
     backdrop-filter: blur(3px);
@@ -968,6 +1015,8 @@
   .sheet {
     display: grid;
     gap: 16px;
+    /* Centered when it fits; when it's taller than the screen, it starts at the top so nothing is out of reach. */
+    margin-block: auto;
     width: min(560px, 100%);
     padding: 28px;
     border: 1px solid var(--door-line);
@@ -975,6 +1024,11 @@
     background: #fff;
     box-shadow: 0 16px 48px rgb(42 34 22 / 18%);
     text-align: center;
+  }
+
+  /* A long list of destinations spreads into more columns, like the names behind it. */
+  .sheet.wide {
+    width: min(960px, 100%);
   }
 
   .sheet .lede {

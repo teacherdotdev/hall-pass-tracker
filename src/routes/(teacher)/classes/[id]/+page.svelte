@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { account, classPasses, findClass, removeStudent, restoreStudent } from '#lib/account.svelte.ts';
-  import { usedBy } from '#lib/allowance.ts';
+  import { skipsAllowance, usedBy } from '#lib/allowance.ts';
   import EditStudentDialog from '#lib/EditStudentDialog.svelte';
   import Icon from '#lib/Icon.svelte';
   import { studentSummaries } from '#lib/stats.ts';
@@ -14,6 +14,7 @@
   const cls = $derived(findClass(page.params.id ?? '')!);
   const allowance = $derived(account.passAllowance);
   let editing = $state(null as Student | null);
+  let showPins = $state(false);
 
   const rows = $derived.by(() => {
     const passes = classPasses(cls.id);
@@ -28,9 +29,19 @@
 </script>
 
 <section class="card" data-tip="tip-roster">
-  <div>
-    <p class="eyebrow">Roster</p>
-    <h2>Students</h2>
+  <div class="roster-head">
+    <div>
+      <p class="eyebrow">Roster</p>
+      <h2>Students</h2>
+    </div>
+    {#if cls.studentPins && rows.length}
+      <div class="row">
+        <button class="btn btn-small" onclick={() => (showPins = !showPins)}>
+          <Icon name="key" size={14} />{showPins ? 'Hide PINs' : 'Show PINs'}
+        </button>
+        <a class="btn btn-small" href="/classes/{cls.id}/pins"><Icon name="printer" size={14} />Print PIN cards</a>
+      </div>
+    {/if}
   </div>
   {#if rows.length}
     <div class="table-wrap">
@@ -38,6 +49,7 @@
         <thead>
           <tr>
             <th>Student</th>
+            {#if cls.studentPins}<th>PIN</th>{/if}
             {#if allowance.enabled}<th class="num">Passes used</th>{/if}
             <th class="num">This week</th>
             <th class="num">Min. this week</th>
@@ -52,13 +64,21 @@
                   <strong>{row.name}</strong>
                 </a>
                 {#if row.former}<span class="badge">Former</span>{/if}
-                {#if row.student.exempt}<span class="badge">Exempt</span>{/if}
-                {#if allowance.enabled && !row.student.exempt && !row.former && row.allowanceUsed >= allowance.passes}
+                {#if row.student.alwaysGo}
+                  <span class="badge" title="Never held back by the Pass Allowance, a limit, the line or no-pass time">Can always go</span>
+                {:else if row.student.exempt}
+                  <span class="badge" title="Exempt from the Pass Allowance, but waits for limits and no-pass time">Exempt</span>
+                {/if}
+                {#if allowance.enabled && !skipsAllowance(row.student) && !row.former && row.allowanceUsed >= allowance.passes}
                   <span class="badge warn">Out of passes</span>
                 {/if}
               </td>
+              {#if cls.studentPins}
+                <!-- Hidden until asked for, so a student glancing at the screen doesn't see a classmate's. -->
+                <td class="pin">{row.former || !row.student.pin ? '–' : showPins ? row.student.pin : '••••'}</td>
+              {/if}
               {#if allowance.enabled}
-                <td class="num">{row.student.exempt ? '–' : `${row.allowanceUsed} of ${allowance.passes}`}</td>
+                <td class="num">{skipsAllowance(row.student) ? '–' : `${row.allowanceUsed} of ${allowance.passes}`}</td>
               {/if}
               <td class="num">{row.week}</td>
               <td class="num">{row.minutesWeek}</td>
@@ -91,6 +111,19 @@
 {/if}
 
 <style>
+  .roster-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 12px;
+  }
+
+  .pin {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    letter-spacing: 0.1em;
+  }
+
   .student-link {
     color: inherit;
     text-decoration: none;

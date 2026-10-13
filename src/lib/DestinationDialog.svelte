@@ -1,7 +1,7 @@
 <script lang="ts">
   import Modal from './Modal.svelte';
   import { account, deleteDestination, saveDestination } from './account.svelte';
-  import { destinationColors, type DestinationColor, type DestinationIcon } from './destinations';
+  import { destinationColors, iconMatchesSearch, type DestinationColor, type DestinationIcon } from './destinations';
   import { destinationIconGroups } from './icons';
   import Icon from './Icon.svelte';
   import { newId } from './passes';
@@ -25,19 +25,19 @@
   // A new destination starts at one at a time; the teacher opens it up for places like the Nurse.
   // svelte-ignore state_referenced_locally
   let studentLimit = $state<number | null>(destination ? destination.limit : 1);
+  // svelte-ignore state_referenced_locally
+  let countsTowardClass = $state(destination?.countsTowardClassLimit !== false);
+  /** Only the way limits work now is shown; the other way's setting is kept for if the teacher switches back. */
+  const hasClassLimit = $derived(account.limitMode === 'class');
   const limitChoices = $derived([...new Set([1, 2, 3, 4, 5, 6, ...(studentLimit ? [studentLimit] : [])])].sort((a, b) => a - b));
   let error = $state('');
 
   const colorNames = Object.keys(destinationColors) as DestinationColor[];
 
-  /** Icon names read as words: "glass-water" is found by "water". */
   let iconSearch = $state('');
   const iconGroups = $derived(
     Object.entries(destinationIconGroups)
-      .map(([group, names]) => ({
-        group,
-        names: names.filter((name) => name.replaceAll('-', ' ').includes(iconSearch.trim().toLowerCase())),
-      }))
+      .map(([group, names]) => ({ group, names: names.filter((name) => iconMatchesSearch(name, iconSearch)) }))
       .filter((entry) => entry.names.length),
   );
 
@@ -59,6 +59,7 @@
     }
     const saved: Destination = { id: destination?.id ?? newId(), label: name, minutes: limit, color, icon, limit: studentLimit };
     if (!counts) saved.countsTowardAllowance = false;
+    if (!countsTowardClass) saved.countsTowardClassLimit = false;
     saveDestination(saved);
     onClose();
   }
@@ -93,21 +94,33 @@
       <span class="muted small" style="font-weight:500">Leave it empty if this trip has no time limit. It'll never show as overdue.</span>
     </label>
 
-    <label class="field">
-      Students here at once
-      <select
-        value={studentLimit === null ? '' : String(studentLimit)}
-        onchange={(event) => (studentLimit = event.currentTarget.value ? Number(event.currentTarget.value) : null)}
-        style="max-width:160px"
-      >
-        <option value="">No limit</option>
-        {#each limitChoices as option (option)}<option value={String(option)}>{option} at a time</option>{/each}
-      </select>
-      <span class="muted small" style="font-weight:500">
-        Once it's full, the next student waits, or joins this destination's line if lines are on in Pass Options.
-        Choose “No limit” for places like the Nurse, so nobody has to wait.
-      </span>
-    </label>
+    {#if hasClassLimit}
+      <label class="check">
+        <input type="checkbox" bind:checked={countsTowardClass} />
+        <span>
+          Counts toward the class limit
+          <span class="muted small">
+            Untick for places like the Nurse or the Counselor, so students going there never wait, however many are out.
+          </span>
+        </span>
+      </label>
+    {:else}
+      <label class="field">
+        Students here at once
+        <select
+          value={studentLimit === null ? '' : String(studentLimit)}
+          onchange={(event) => (studentLimit = event.currentTarget.value ? Number(event.currentTarget.value) : null)}
+          style="max-width:160px"
+        >
+          <option value="">No limit</option>
+          {#each limitChoices as option (option)}<option value={String(option)}>{option} at a time</option>{/each}
+        </select>
+        <span class="muted small" style="font-weight:500">
+          Once it's full, the next student waits, or joins this destination's line if lines are on in Pass Options.
+          Choose “No limit” for places like the Nurse, so nobody has to wait.
+        </span>
+      </label>
+    {/if}
 
     <label class="check">
       <input type="checkbox" bind:checked={counts} />

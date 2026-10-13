@@ -25,16 +25,21 @@ entirely in the browser:
   working while the laptop is closed, saving passes on the device and sending
   them when the two reconnect. If the school network blocks devices from
   talking directly, only the laptop itself can be the kiosk.
+- **The Student link** lets students watch who's out and the line on their own
+  Chromebook or phone. Their browser connects to the teacher's laptop the same
+  way the kiosk does, so it works only while Happy Hallways is open there.
 
 ```
 src/lib/account.svelte.ts   the teacher's data and every change to it
 src/lib/link.svelte.ts      the laptop's end of the kiosk connection (pairing, syncing)
 src/lib/door.svelte.ts      the kiosk's end: running the door, saving passes offline
+src/lib/studentLink.svelte.ts  the laptop's end of the Student link
 src/lib/passes.ts           pass maths and the kiosk/laptop merge rule
 src/lib/stats.ts            the numbers on the class and student pages
 src/lib/roster.ts           turning a pasted list into short, private display names
 src/routes/(teacher)/       the teacher's pages (classes, kiosk, settings)
 src/routes/door/            the kiosk screen
+src/routes/student/[id]/    what students see from the Student link
 ```
 
 ## Running it

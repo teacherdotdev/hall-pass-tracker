@@ -1,5 +1,6 @@
-import { defaultAllowance, passCounts, windowStart } from './allowance';
+import { defaultAllowance, passCounts, skipsAllowance, windowStart } from './allowance';
 import { defaultDestinations, knownIcon } from './destinations';
+import { countsTowardClassLimit } from './limits';
 import type { IconName } from './icons';
 import { endUnseen, mergeInto, newId, now } from './passes';
 import { displayName, type ImportPlan } from './roster';
@@ -18,6 +19,7 @@ import type {
   Student,
 } from './types';
 import { newsIds, seenBefore } from './popups';
+import { randomPin } from './pins';
 
 /**
  * The teacher's whole Account, kept in this browser's local storage. There is
@@ -34,6 +36,8 @@ function blankAccount(): Account {
     passes: [],
     lineEnabled: false,
     line: [],
+    limitMode: 'destination',
+    classLimit: 1,
     passAllowance: defaultAllowance(),
     schedules: [],
     currentScheduleId: null,
@@ -47,6 +51,7 @@ function blankAccount(): Account {
     activeClass: null,
     replacedKiosks: [],
     networkBlocked: false,
+    studentLink: null,
   };
 }
 
@@ -56,6 +61,8 @@ function blankAccount(): Account {
  * - Destinations used to be a list on each class; they became one shared list.
  * - The Pass Limit used to be one number for every destination (and before
  *   that, one per class); each destination now has its own. See docs/adr/0007.
+ *   A teacher may since choose one Class Limit instead; everyone who saved
+ *   before that keeps a limit on each destination. See docs/adr/0010.
  * - The teacher used to give Permissions from the laptop ahead of time;
  *   students now send Requests instead, so unused ones are dropped. See
  *   docs/adr/0009.
@@ -65,7 +72,9 @@ function blankAccount(): Account {
  * - "First N minutes of every class" used to be rules across a schedule; each
  *   period now has its own. See EdgeRule.
  */
-type SavedAccount = Omit<Account, 'destinations' | 'classes' | 'schedules' | 'seenPopups'> & {
+type SavedAccount = Omit<Account, 'destinations' | 'classes' | 'schedules' | 'seenPopups' | 'limitMode' | 'classLimit'> & {
+  limitMode?: Account['limitMode'];
+  classLimit?: number;
   schedules?: Schedule[];
   destinations?: (Omit<Destination, 'limit'> & { limit?: number | null })[];
   passLimit?: number;
@@ -100,6 +109,8 @@ function upgrade(saved: SavedAccount): Account {
     if (destination.limit === undefined) destination.limit = oldLimit;
   }
   delete saved.passLimit;
+  saved.limitMode ??= 'destination';
+  saved.classLimit ??= 1;
   saved.passAllowance ??= defaultAllowance();
   delete saved.permissions;
   delete saved.extraPassGifts;
@@ -150,15 +161,15 @@ function load(): Account {
 
 export const account: Account = $state(load());
 
-/** Called after every save, so a connected kiosk hears about the change. */
-let afterSave = () => {};
+/** Called after every save, so a connected kiosk, and students watching the Student link, hear about the change. */
+const afterSave: (() => void)[] = [];
 export function onSave(listener: () => void) {
-  afterSave = listener;
+  afterSave.push(listener);
 }
 
 function save() {
   localStorage.setItem(storageKey, JSON.stringify(account));
-  afterSave();
+  for (const listener of afterSave) listener();
 }
 
 /**
@@ -167,9 +178,9 @@ function save() {
  * others' changes, and only one tab can hold the laptop's address for the
  * kiosk. So when another tab saves, this one takes its copy straight away.
  */
-let afterReload = () => {};
+const afterReload: (() => void)[] = [];
 export function onReload(listener: () => void) {
-  afterReload = listener;
+  afterReload.push(listener);
 }
 
 if (typeof window !== 'undefined') {
@@ -178,7 +189,7 @@ if (typeof window !== 'undefined') {
     const fresh = load();
     for (const key of Object.keys(account)) if (!(key in fresh)) delete account[key as keyof Account];
     Object.assign(account, fresh);
-    afterReload();
+    for (const listener of afterReload) listener();
   });
 }
 
@@ -215,6 +226,20 @@ export function updateClass(id: string, changes: Partial<Pick<Class, 'name'>>) {
   const cls = findClass(id);
   if (!cls) return;
   Object.assign(cls, changes);
+  save();
+}
+
+/**
+ * The teacher's classes are listed in the order they're saved, everywhere:
+ * the sidebar, Home, History, the schedule and the kiosk. Moving one here
+ * moves it in all of them.
+ */
+export function moveClass(id: string, toIndex: number) {
+  const fromIndex = account.classes.findIndex((cls) => cls.id === id);
+  const to = Math.max(0, Math.min(account.classes.length - 1, toIndex));
+  if (fromIndex === -1 || fromIndex === to) return;
+  const [cls] = account.classes.splice(fromIndex, 1);
+  account.classes.splice(to, 0, cls);
   save();
 }
 
@@ -431,7 +456,11 @@ export function moveWarning(toClassId: string) {
 // Pass Options and the Line
 // ---------------------------------------------------------------------------
 
-export function setPassOptions(options: { lineEnabled?: boolean }) {
+/**
+ * Switching between a limit on each destination and one Class Limit keeps the
+ * other way's numbers, so switching back finds them as they were.
+ */
+export function setPassOptions(options: Partial<Pick<Account, 'lineEnabled' | 'limitMode' | 'classLimit'>>) {
   Object.assign(account, options);
   if (account.lineEnabled === false) account.line = [];
   save();
@@ -487,12 +516,52 @@ export function applyImport(classId: string, plan: ImportPlan, removeIds: string
   for (const change of plan.matched) {
     const student = cls.students.find((each) => each.id === change.student.id);
     if (student) student.lastPrefix = change.lastPrefix;
+    if (student && change.pin) student.pin = change.pin;
   }
   for (const entry of plan.added) {
-    cls.students.push({ id: newId(), firstName: entry.firstName, lastPrefix: entry.lastPrefix, status: 'current' });
+    const student: Student = { id: newId(), firstName: entry.firstName, lastPrefix: entry.lastPrefix, status: 'current' };
+    if (entry.pin) student.pin = entry.pin;
+    cls.students.push(student);
   }
   for (const id of removeIds) removeStudentFrom(cls, id);
+  if (cls.studentPins) giveEveryonePins(cls);
   save();
+}
+
+/**
+ * Hands a random PIN to every current student who has none, unique in their
+ * class and never the teacher's. Former students' PINs stay taken, in case
+ * they're brought back.
+ */
+function giveEveryonePins(cls: Class) {
+  const taken = new Set([account.pin, ...cls.students.flatMap((student) => (student.pin ? [student.pin] : []))]);
+  for (const student of cls.students) {
+    if (student.pin || student.status !== 'current') continue;
+    student.pin = randomPin(taken);
+    taken.add(student.pin);
+  }
+}
+
+/** Turns asking for PINs at the kiosk on or off for one class. Turning it on gives a PIN to anyone without one. */
+export function setStudentPins(classId: string, on: boolean) {
+  const cls = findClass(classId);
+  if (!cls) return;
+  cls.studentPins = on || undefined;
+  if (on) giveEveryonePins(cls);
+  save();
+}
+
+/** The caller has already checked the PIN with pinProblem(). */
+export function setStudentPin(classId: string, studentId: string, pin: string) {
+  const student = findClass(classId)?.students.find((each) => each.id === studentId);
+  if (!student) return;
+  student.pin = pin;
+  save();
+}
+
+/** Whether any student in any class has this PIN, so the teacher doesn't choose it as their own. */
+export function isStudentPin(pin: string) {
+  return account.classes.some((cls) => cls.students.some((student) => student.pin === pin));
 }
 
 export function renameStudent(classId: string, studentId: string, firstName: string, lastPrefix: string) {
@@ -533,10 +602,20 @@ export function setExempt(classId: string, studentId: string, exempt: boolean) {
   save();
 }
 
-export function restoreStudent(classId: string, studentId: string) {
+/** An Always-Go Student is never held back by any rule. See docs/adr/0011. */
+export function setAlwaysGo(classId: string, studentId: string, alwaysGo: boolean) {
   const student = findClass(classId)?.students.find((each) => each.id === studentId);
   if (!student) return;
+  student.alwaysGo = alwaysGo || undefined;
+  save();
+}
+
+export function restoreStudent(classId: string, studentId: string) {
+  const cls = findClass(classId);
+  const student = cls?.students.find((each) => each.id === studentId);
+  if (!cls || !student) return;
   student.status = 'current';
+  if (cls.studentPins) giveEveryonePins(cls);
   save();
 }
 
@@ -698,6 +777,16 @@ export function setNetworkBlocked(blocked: boolean) {
   save();
 }
 
+/**
+ * Opens or closes the Student link. The first time it opens, it gets its
+ * address; `newLink` gives it a new one, and the old one stops working.
+ */
+export function setStudentLink(open: boolean, newLink = false) {
+  const id = newLink || !account.studentLink ? newId() : account.studentLink.id;
+  account.studentLink = { id, open };
+  save();
+}
+
 /** What the kiosk needs to run the door on its own. */
 export function doorSetup(): DoorSetup {
   const today = new Date();
@@ -709,10 +798,18 @@ export function doorSetup(): DoorSetup {
       name: cls.name,
       students: cls.students
         .filter((student) => student.status === 'current')
-        .map((student) => ({ id: student.id, name: displayName(student), exempt: student.exempt })),
+        .map((student) => ({
+          id: student.id,
+          name: displayName(student),
+          exempt: skipsAllowance(student) || undefined,
+          alwaysGo: student.alwaysGo,
+          pin: cls.studentPins ? student.pin : undefined,
+        })),
     })),
-    destinations: account.destinations,
+    destinations: account.limitMode === 'class' ? classLimitOnEachDestination() : account.destinations,
     lineEnabled: account.lineEnabled,
+    limitMode: account.limitMode,
+    classLimit: account.classLimit,
     passAllowance: account.passAllowance,
     countedPasses: account.passAllowance.enabled ? countedPasses() : [],
     activeClass: account.activeClass,
@@ -725,12 +822,27 @@ export function doorSetup(): DoorSetup {
 }
 
 /**
+ * A kiosk on the version before Class Limits, until it refreshes, knows only a
+ * limit on each destination. Giving every destination that counts the Class
+ * Limit is the closest it can come: the Nurse still never waits, though each
+ * destination fills on its own rather than together. A kiosk on this version
+ * reads `limitMode` and ignores these.
+ */
+function classLimitOnEachDestination() {
+  return account.destinations.map((destination) => ({
+    ...destination,
+    limit: countsTowardClassLimit(destination) ? account.classLimit : null,
+  }));
+}
+
+/**
  * A kiosk still on the version before per-destination limits enforces one
- * limit on everyone out at once. The largest destination limit keeps it working
- * as it did before the update, until the teacher changes a destination or the
- * kiosk refreshes.
+ * limit on everyone out at once: the Class Limit, if the teacher has one.
+ * Otherwise the largest destination limit keeps it working as it did before
+ * the update, until the teacher changes a destination or the kiosk refreshes.
  */
 function forOlderKiosks() {
+  if (account.limitMode === 'class') return { passLimit: account.classLimit };
   const limits = account.destinations.flatMap((destination) => (destination.limit === null ? [] : [destination.limit]));
   return { passLimit: limits.length ? Math.max(...limits) : 99 };
 }

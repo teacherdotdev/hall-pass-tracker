@@ -36,6 +36,8 @@
   import QuietScene, { seasons, type Season } from '#lib/QuietScene.svelte';
   import { page } from '$app/state';
   import SiteFooter from '#lib/SiteFooter.svelte';
+  import { studentLink } from '#lib/studentLink.svelte.ts';
+  import StudentLinkCopy from '#lib/StudentLinkCopy.svelte';
   import { duration, hasRealDuration, isOverdue, now, time } from '#lib/passes.ts';
   import { nextClassPeriod, periodAt, toMinutes } from '#lib/schedule.ts';
   import type { Block, PassRequest } from '#lib/types.ts';
@@ -80,12 +82,14 @@
   const requests = $derived(waitingRequests());
   const out = $derived(classId ? openPasses(classId).sort((a, b) => a.outAt.localeCompare(b.outAt)) : []);
   const waiting = $derived(account.line.filter((spot) => spot.classId === classId));
-  /** Each destination has its own line. */
+  /** Each destination has its own line; under a Class Limit there is one Class Line, named by no destination. */
   const lines = $derived(
-    [...new Set(waiting.map((spot) => spot.destination))].map((destination) => ({
-      destination,
-      spots: waiting.filter((spot) => spot.destination === destination),
-    })),
+    account.limitMode === 'class'
+      ? [{ destination: null, spots: waiting }].filter((each) => each.spots.length)
+      : [...new Set(waiting.map((spot) => spot.destination))].map((destination) => ({
+          destination: destination as string | null,
+          spots: waiting.filter((spot) => spot.destination === destination),
+        })),
   );
 
   /** "This class" starts when it came on the kiosk, or this morning if that was before today. */
@@ -209,7 +213,7 @@
   const blockText: Record<Block, (request: PassRequest) => string> = {
     allowance: () => 'Out of passes',
     'no-pass': () => 'No-pass time',
-    full: (request) => `${request.destination} is full`,
+    full: (request) => (account.limitMode === 'class' ? 'Class limit reached' : `${request.destination} is full`),
   };
 
   function ago(when: string) {
@@ -304,13 +308,13 @@
           {/if}
           {#each lines as each (each.destination)}
             <div class="stack" style="gap:8px">
-              <p class="eyebrow">In line for {each.destination} ({each.spots.length})</p>
+              <p class="eyebrow">{each.destination ? `In line for ${each.destination}` : 'In line'} ({each.spots.length})</p>
               <ol class="line-list">
                 {#each each.spots as spot, index (spot.studentId)}
                   <li>
                     <span class="line-position">{index + 1}</span>
                     <strong>{spot.studentName}</strong>
-                    <span class="muted small">since {time(spot.joinedAt)}</span>
+                    <span class="muted small">{each.destination ? '' : `for ${spot.destination}, `}since {time(spot.joinedAt)}</span>
                   </li>
                 {/each}
               </ol>
@@ -394,6 +398,23 @@
           >
           <button class="btn btn-small btn-quiet" onclick={disconnect}>Disconnect</button>
         </div>
+      {/if}
+    </section>
+
+    <section class="kiosk-card" aria-labelledby="student-link-title">
+      <div class="panel-head">
+        <h2 id="student-link-title"><Icon name="link" size={18} />Student link</h2>
+        {#if account.studentLink?.open}
+          <span class="kiosk-state">
+            <span class="status-dot" class:live={studentLink.viewers > 0} aria-hidden="true"></span>{studentLink.viewers} viewing
+          </span>
+        {/if}
+      </div>
+      {#if account.studentLink?.open}
+        <StudentLinkCopy />
+      {:else}
+        <p class="muted small">Students can check who's out and the line from their own Chromebook or phone.</p>
+        <div class="kiosk-actions"><a class="btn btn-small" href="/student-link">Open student link</a></div>
       {/if}
     </section>
 
@@ -597,7 +618,7 @@
     position: sticky;
     top: 40px;
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr);
     gap: 12px;
     height: var(--fit);
   }

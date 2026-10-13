@@ -35,6 +35,10 @@
       For each student, Happy Hallways keeps only a first name and the first few letters of the last name, just enough to
       tell students apart. The rest of the last name is thrown away when you paste your class list.
     </p>
+    <p>
+      If you turn on PINs for a class, each student also has a short PIN to type at the kiosk. Happy Hallways makes these
+      up, or you can choose them. Please don't use real student ID numbers.
+    </p>
   </section>
 
   <section class="card">
@@ -50,7 +54,24 @@
       which can't read it.
       Google's public connection service helps each device learn its own network address; it sees no class data.
     </p>
-    <p>The kiosk keeps a copy of your students' short names and holds passes only until your computer receives them.</p>
+    <p>
+      The kiosk keeps a copy of your students' short names (and their PINs, if you use them) and holds passes only until
+      your computer receives them. It never shows anyone's PIN on screen.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>The student link</h2>
+    <p>
+      If you open the student link, students who have it can see, on their own device, what the kiosk shows the whole
+      room: who is out and where they went, who is waiting in line, and whether passes are open, using the same short
+      names. Their device connects straight to your computer, the same way the kiosk does, and keeps nothing.
+    </p>
+    <p>
+      Anyone with the link can see it while it's open, so share it only with your class. You can close it at any time,
+      or get a new link so the old one stops working. It never shows how long anyone has been out, any PIN, or anything
+      you've set for a student.
+    </p>
   </section>
 
   <section class="card">

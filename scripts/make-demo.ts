@@ -312,6 +312,8 @@ const account: Account = {
   passes: passes.sort((a, b) => a.outAt.localeCompare(b.outAt)),
   lineEnabled: true,
   line: [],
+  limitMode: 'destination',
+  classLimit: 1,
   passAllowance: { enabled: true, passes: allowance, per: 'week', whenUsedUp: 'stop', since: schoolDays[0].toISOString() },
   schedules: [regular, earlyRelease, assembly],
   currentScheduleId: regular.id,

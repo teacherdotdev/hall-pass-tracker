@@ -11,8 +11,18 @@ export type Student = {
   lastPrefix: string;
   /** A Former Student has left the class but keeps every trip they took. */
   status: 'current' | 'former';
-  /** An Exempt Student: the Pass Allowance never applies to them. */
+  /** An Exempt Student: the Pass Allowance never applies to them. They still wait for limits and No-Pass Time. */
   exempt?: boolean;
+  /**
+   * An Always-Go Student: no rule ever holds them back — not the Pass Allowance,
+   * a Pass Limit, the Line or No-Pass Time. See docs/adr/0011.
+   */
+  alwaysGo?: boolean;
+  /**
+   * The student's PIN: 3 to 6 digits they type at the kiosk after tapping their
+   * name, when their class asks for one. Never a real school ID. See docs/adr/0013.
+   */
+  pin?: string;
 };
 
 /**
@@ -28,9 +38,21 @@ export type Destination = {
   icon: DestinationIcon;
   /** Whether a trip here uses up the Pass Allowance. Missing means it does. */
   countsTowardAllowance?: boolean;
-  /** The Pass Limit: the most students here at once, or null for no limit (and so no Line). */
+  /**
+   * The Pass Limit: the most students here at once, or null for no limit (and
+   * so no Line). Kept, but not used, while the teacher has a Class Limit.
+   */
   limit: number | null;
+  /** Whether a trip here takes one of the Class Limit's spots. Missing means it does. Only used with a Class Limit. */
+  countsTowardClassLimit?: boolean;
 };
+
+/**
+ * How the Pass Limit works: each destination has its own limit and Line, or
+ * one Class Limit and one Line are shared by every destination that counts
+ * toward it. See docs/adr/0010.
+ */
+export type LimitMode = 'destination' | 'class';
 
 /**
  * The Pass Allowance: how many passes each student may take in a stretch of
@@ -46,7 +68,7 @@ export type PassAllowance = {
   since: string;
 };
 
-/** What can stop a student from leaving: a used-up Pass Allowance, No-Pass Time, or a full destination (or others ahead in its Line). */
+/** What can stop a student from leaving: a used-up Pass Allowance, No-Pass Time, or a reached Pass Limit (or others ahead in its Line). */
 export type Block = 'allowance' | 'no-pass' | 'full';
 
 /**
@@ -119,6 +141,8 @@ export type Class = {
   name: string;
   students: Student[];
   createdAt: string;
+  /** Whether students in this class type their PIN at the kiosk after tapping their name. Off unless the teacher turns it on. */
+  studentPins?: boolean;
 };
 
 /** How a pass ended. Everything except "student" and "teacher" means nobody saw the return. */
@@ -140,8 +164,10 @@ export type Pass = {
   extra?: boolean;
   /** Taken during No-Pass Time, with the teacher's permission. */
   noPassException?: boolean;
-  /** Taken while the destination was full, ahead of its Line, with the teacher's permission. */
+  /** Taken while the Pass Limit was reached, ahead of the Line, with the teacher's permission. */
   lineSkip?: boolean;
+  /** Taken by an Always-Go Student, frozen when they left. It took none of any Pass Limit's spots. */
+  alwaysGo?: boolean;
   /** Where the teacher approved the student's Request: on Home, or with the PIN at the kiosk. */
   approvedBy?: 'home' | 'pin';
   outAt: string;
@@ -153,7 +179,11 @@ export type Pass = {
   updatedAt: string;
 };
 
-/** One student waiting in a destination's Line at the kiosk. Each destination's line is the spots that name it. */
+/**
+ * One student waiting in a Line at the kiosk, and where they want to go. Each
+ * destination's line is the spots that name it; under a Class Limit, every
+ * spot for a destination that counts toward it is in the one Class Line.
+ */
 export type LineSpot = {
   studentId: string;
   studentName: string;
@@ -181,10 +211,13 @@ export type Account = {
   classes: Class[];
   destinations: Destination[];
   passes: Pass[];
-  /** Whether students may join a destination's Line once its Pass Limit is reached. */
+  /** Whether students may join a Line once its Pass Limit is reached. */
   lineEnabled: boolean;
-  /** Every destination's Line as the kiosk last reported it. The kiosk is in charge of them. */
+  /** Every Line as the kiosk last reported it. The kiosk is in charge of them. */
   line: LineSpot[];
+  limitMode: LimitMode;
+  /** The Class Limit: how many students may be out at once, when `limitMode` is "class". Kept while it isn't. */
+  classLimit: number;
   passAllowance: PassAllowance;
   /** Always at least one. */
   schedules: Schedule[];
@@ -207,6 +240,12 @@ export type Account = {
   replacedKiosks: { kioskId: string; secret: string }[];
   /** Set when a pairing attempt showed that this network blocks device-to-device connections. */
   networkBlocked: boolean;
+  /**
+   * The Student link, once the teacher has opened it: the unguessable id in
+   * its address, and whether it is open right now. Getting a new link changes
+   * the id. See docs/adr/0012.
+   */
+  studentLink: { id: string; open: boolean } | null;
   lastExportedAt?: string;
 };
 
@@ -214,7 +253,13 @@ export type Account = {
 export type DoorClass = {
   id: string;
   name: string;
-  students: { id: string; name: string; exempt?: boolean }[];
+  /**
+   * `exempt` is sent true for an Always-Go Student too, so a kiosk on the
+   * version before Always-Go, until it refreshes, at least lifts their Pass Allowance.
+   * `pin` is sent only while the class asks for PINs, so the kiosk asks for one
+   * exactly when a student has it. An older kiosk ignores it and asks for none.
+   */
+  students: { id: string; name: string; exempt?: boolean; alwaysGo?: boolean; pin?: string }[];
 };
 
 /** Just enough of a past pass for the kiosk to count it against the Pass Allowance. */
@@ -223,8 +268,16 @@ export type CountedPass = { id: string; classId: string; studentId: string; outA
 /** Everything the laptop hands the kiosk so it can run the door on its own. */
 export type DoorSetup = {
   classes: DoorClass[];
+  /**
+   * With a Class Limit, each destination's `limit` is sent as the Class Limit
+   * (or null if it doesn't count toward it), so a kiosk on the version before
+   * Class Limits, until it refreshes, still holds students back much as it should.
+   */
   destinations: Destination[];
   lineEnabled: boolean;
+  /** Missing from a laptop on the version before Class Limits, which means "destination". */
+  limitMode?: LimitMode;
+  classLimit?: number;
   passAllowance: PassAllowance;
   /** Every pass that uses up the Pass Allowance in its current window, so the kiosk can count without the laptop. */
   countedPasses: CountedPass[];
@@ -235,7 +288,7 @@ export type DoorSetup = {
   pin: string;
   /**
    * What a kiosk still running the version before per-destination limits
-   * reads, until it refreshes: one Pass Limit for every destination. A laptop
+   * reads, until it refreshes: one Pass Limit on everyone out at once. A laptop
    * on that version sends this instead of `limit`.
    */
   passLimit?: number;
@@ -258,3 +311,42 @@ export type LaptopMessage =
   | { type: 'replaced' }
   | { type: 'answer'; requestId: string; approve: boolean }
   | { type: 'ping' };
+
+/**
+ * What a student's device is shown over the Student link: the same as the
+ * door screen shows about the class on the kiosk, and nothing more. Display
+ * Names only; never times, PINs, or how a student's passes are treated.
+ * See docs/adr/0012.
+ */
+export type StudentView = {
+  /** The class on the kiosk, or null when there is none. */
+  className: string | null;
+  /** Whether passes are open, it's a No-Pass Time, it's between classes, or no class is on the kiosk. */
+  status: 'open' | 'no-pass' | 'between' | 'no-class';
+  /** During a No-Pass Time: "Passes open at 9:15 AM.", or that the teacher will open them. */
+  whenPassesOpen?: string;
+  /** Who is out now, first to leave first. */
+  out: { name: string; destination: string }[];
+  /** Each Line in order, as the door shows them. Under a Class Limit there is one, with no destination. */
+  lines: { destination: string | null; spots: { name: string; destination: string; upNext: boolean }[] }[];
+  /** Just enough of each destination to draw its icon. */
+  destinations: Pick<Destination, 'label' | 'color' | 'icon'>[];
+};
+
+/**
+ * Messages from the teacher's computer to a student's device. "closed": the
+ * teacher closed the link. "full": too many people are viewing. "old-link":
+ * the teacher got a new link, so this one stops working.
+ */
+export type StudentLinkMessage =
+  | { type: 'view'; view: StudentView }
+  | { type: 'closed' }
+  | { type: 'full' }
+  | { type: 'old-link' }
+  | { type: 'ping' };
+
+/**
+ * Messages from a student's device to the teacher's computer. Only "still
+ * here" for now; asking for a pass would be added here, over the same link.
+ */
+export type StudentMessage = { type: 'ping' };

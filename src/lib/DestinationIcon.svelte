@@ -4,8 +4,9 @@
   import Icon from './Icon.svelte';
   import type { Destination } from './types';
 
-  /** A destination's icon on its color, looked up by name. Pass `list` on the kiosk, which has its own copy. */
-  let { label, size = 28, list }: { label: string; size?: number; list?: Destination[] } = $props();
+  /** A destination's icon on its color, looked up by name. Pass `list` on the kiosk and the Student link, which have their own copy. */
+  let { label, size = 28, list }: { label: string; size?: number; list?: Pick<Destination, 'label' | 'color' | 'icon'>[] } =
+    $props();
 
   const look = $derived(lookFor(list ?? account.destinations, label));
 </script>

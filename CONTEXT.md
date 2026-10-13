@@ -36,11 +36,21 @@ back.
 _Avoid_: Trip, hall pass
 
 **Pass Limit**:
-The most students who may be at one destination at the same time, such as one
-at a time for the Restroom. Each destination has its own, or none at all, so
-the Nurse and the Counselor can take any number of students while the Restroom
-takes one. There is no limit on how many students may be out in total.
+The most students who may be out at the same time. The teacher chooses, in
+Pass Options, how it works for all their classes: either each destination has
+its own, or none at all — so the Restroom takes one at a time while the Nurse
+and the Counselor take any number — or there is one Class Limit. Changing
+between the two keeps the other's settings for when the teacher changes back.
 _Avoid_: Max out, cap, capacity
+
+**Class Limit**:
+A Pass Limit shared by the whole class: the most students who may be out at
+once, wherever they are going, counting only destinations marked as counting
+toward it. Students still pick a destination, and it is still recorded. A trip
+to a destination that doesn't count, such as the Nurse, is never held up and
+takes none of its spots. While it is on, the limits on each destination are
+kept but not used.
+_Avoid_: Total limit, room limit, Pass Allowance (that is how many passes each student gets)
 
 **Pass Allowance**:
 How many passes each student may take in a stretch of time: per day, per week,
@@ -76,16 +86,42 @@ Request. It is marked so the teacher can see it later.
 _Avoid_: Extra Pass (that lifts the Pass Allowance), override, excused pass
 
 **Line Skip**:
-A pass taken at a destination that has reached its Pass Limit, ahead of anyone
-in its Line, because the teacher approved the student's Request. Those in line
-keep their places. It is marked so the teacher can see it later.
+A pass taken once its Pass Limit is reached — the destination's own, or the
+Class Limit — ahead of anyone in the Line, because the teacher approved the
+student's Request. Those in line keep their places. It is marked so the
+teacher can see it later.
 _Avoid_: Cutting, priority, override
 
 **Exempt Student**:
-A student the Pass Allowance does not apply to, such as one with a medical
-need written into an IEP or 504 plan. They never run out, every trip is still
+A student the Pass Allowance does not apply to. They never run out, but still
+wait for a Pass Limit and No-Pass Time like everyone else. Every trip is still
 recorded, and the kiosk never shows that they are exempt.
 _Avoid_: Unlimited student, special student, accommodation
+
+**Always-Go Student**:
+A student the teacher has marked "Can always go", usually for a medical need
+written into an IEP or 504 plan. Nothing at the kiosk ever holds them back:
+not the Pass Allowance, a Pass Limit, the Line or No-Pass Time. They never join
+a Line, and their trips take none of a Pass Limit's spots, so they never keep
+anyone else waiting. Every pass they take is recorded and marked so the
+teacher can see it later, and the kiosk never shows that they can always go.
+_Avoid_: Exempt Student (that lifts only the Pass Allowance), unlimited student, medical pass, override
+
+**PIN**:
+A few digits (3 to 6) a student types at the kiosk after tapping their name, so
+a classmate can't sign out or in as them. Each class turns PINs on or off; they
+are off unless the teacher turns them on. Happy Hallways makes up a 4-digit PIN
+for each student, different from everyone else's in the class and from the
+Teacher PIN; the teacher can change one or bring their own in the class list.
+The kiosk asks for it before anything that acts as that student, and never
+shows it. A student who forgot theirs can be let through with the Teacher PIN.
+It is never a real school ID number.
+_Avoid_: Student ID, lunch number, code, password
+
+**Teacher PIN**:
+The teacher's own 4 to 8 digits, which unlock the teacher menu at the kiosk,
+let a blocked student go, and stand in for a student's forgotten PIN.
+_Avoid_: Password, admin code
 
 **No-Pass Time**:
 A stretch of the clock when the class on the kiosk may not start passes. Most
@@ -98,13 +134,15 @@ and if the Line is on, students may join it and go once the No-Pass Time ends.
 _Avoid_: Blackout, lockout, quiet time
 
 **Line**:
-Students waiting at the kiosk for one destination once its Pass Limit is
-reached, in the order they joined. Each destination with a Pass Limit has its
-own line, and a destination with none never has one. A teacher turns lines on
-in Pass Options. When a spot at that destination opens it is held for the first
-in its line, who is **Up Next** for it; nobody else may take it, but students
-headed somewhere else are not held up. The line belongs to the class on the kiosk and empties when
-the class changes. Being in line is not a pass and leaves nothing in history.
+Students waiting at the kiosk once a Pass Limit is reached, in the order they
+joined, each with the destination they want. Each destination with its own
+Pass Limit has its own line, and a destination with none never has one. Under
+a Class Limit there is one line, the **Class Line**, for every destination
+that counts toward it. A teacher turns lines on in Pass Options. When a spot
+opens it is held for the first in that line, who is **Up Next**; nobody else
+may take it, but students headed somewhere the line doesn't cover are not held
+up. The line belongs to the class on the kiosk and empties when the class
+changes. Being in line is not a pass and leaves nothing in history.
 _Avoid_: Queue, wait list
 
 **Schedule**:
@@ -149,6 +187,16 @@ laptop again on its own. The code is single-use and short-lived. A device that
 has not paired successfully is never a kiosk; if pairing is impossible on the
 network, the teacher's own computer is the kiosk.
 _Avoid_: Linking, connecting, logging in
+
+**Student link**:
+A link the teacher posts, say in Google Classroom, so students can see on their
+own Chromebook or phone what the door screen shows about the Active Class: who
+is out and where they went, each Line, and whether passes are open. It only
+looks; signing out still happens at the kiosk. Students' devices connect to the
+teacher's computer, not the kiosk, so the link works only while Happy Hallways
+is open there, and only while the teacher has it open. Getting a new link stops
+the old one working. Anyone with the link can see the Display Names on it.
+_Avoid_: Share link, public view, student view, student mode
 
 **Active Class**:
 The class the kiosk is currently showing. Changing it ends every pass still open
@@ -198,8 +246,8 @@ whole. A student who has history is never truly deleted.
 _Avoid_: Archived student, deleted student, inactive student
 
 **Backup**:
-A single file holding everything the teacher's laptop knows: classes, students,
-passes, destinations, Pass Options, schedules and the kiosk pairing. Restoring it replaces
+A single file holding everything the teacher's laptop knows: classes, students
+(with their PINs), passes, destinations, Pass Options, schedules, the kiosk pairing and the Student link. Restoring it replaces
 everything in that browser and puts the teacher back exactly where they were.
 Happy Hallways has no accounts or sign-in; the backup is the only copy that leaves the
 browser.

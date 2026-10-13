@@ -28,13 +28,14 @@ export const rowKinds = [
   { value: 'extra', label: 'Extra Pass' },
   { value: 'no-pass', label: 'No-Pass Exception' },
   { value: 'line-skip', label: 'Line Skip' },
+  { value: 'always-go', label: 'Can always go' },
   { value: 'denied', label: 'Denied request' },
 ];
 
 export function kindsOf(row: HistoryRow): string[] {
   if (row.kind === 'denied') return ['denied'];
   const { pass } = row;
-  const kinds = [pass.extra && 'extra', pass.noPassException && 'no-pass', pass.lineSkip && 'line-skip'].filter(
+  const kinds = [pass.extra && 'extra', pass.noPassException && 'no-pass', pass.lineSkip && 'line-skip', pass.alwaysGo && 'always-go'].filter(
     (kind): kind is string => !!kind,
   );
   return kinds.length ? kinds : ['normal'];
