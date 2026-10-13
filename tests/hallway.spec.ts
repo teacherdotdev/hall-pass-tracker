@@ -339,6 +339,24 @@ test('a destination can have a time limit', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Edit Nurse' })).toBeHidden();
 });
 
+test('on a short laptop window, every icon can be reached and searched by the words teachers use', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 650 });
+  await page.goto('/destinations');
+  await page.getByRole('button', { name: /New destination|Add/ }).first().click();
+  await page.getByLabel('Name').fill('Girls Restroom');
+  await page.getByRole('button', { name: 'sparkles' }).click();
+  await expect(page.getByRole('button', { name: 'sparkles' })).toHaveAttribute('aria-pressed', 'true');
+
+  await page.getByLabel('Search icons').fill('restroom');
+  await page.getByRole('button', { name: 'toilet' }).click();
+  await page.getByLabel('Search icons').fill('water fountain');
+  await expect(page.getByRole('button', { name: 'glass water' })).toBeVisible();
+  await page.getByLabel('Search icons').fill('nurse');
+  await expect(page.getByRole('button', { name: 'stethoscope' })).toBeVisible();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('heading', { name: 'New destination' })).toBeHidden();
+});
+
 test('a kiosk with a long list of destinations lets students reach every one', async ({ page }) => {
   const labels = Array.from({ length: 18 }, (_, index) => `Room ${index + 1}`);
   for (const size of [

@@ -20,6 +20,85 @@ export const destinationIcons = Object.values(destinationIconGroups).flat();
 
 export type DestinationIcon = (typeof destinationIcons)[number];
 
+/**
+ * Words teachers search for that aren't in an icon's own name, so "restroom" finds the
+ * toilet and "fountain" finds the water glass. Each icon's name is searched as well.
+ */
+const iconSearchWords: Partial<Record<DestinationIcon, string>> = {
+  toilet: 'restroom bathroom washroom lavatory girls boys wc',
+  droplet: 'water fountain drink',
+  droplets: 'water fountain drink',
+  'glass-water': 'drink fountain',
+  bath: 'restroom bathroom washroom',
+  baby: 'changing nursery',
+  stethoscope: 'nurse health doctor clinic',
+  pill: 'nurse medicine health',
+  thermometer: 'nurse sick health',
+  'heart-pulse': 'nurse health',
+  bandage: 'nurse first aid health',
+  cross: 'nurse first aid health',
+  accessibility: 'wheelchair elevator special education',
+  building: 'office main front',
+  school: 'office main front',
+  'heart-handshake': 'counselor counseling social worker support',
+  'user-round': 'teacher person counselor room',
+  users: 'teachers people group',
+  contact: 'teacher person',
+  briefcase: 'office principal administrator',
+  'clipboard-list': 'attendance office',
+  phone: 'call office',
+  landmark: 'principal office',
+  shield: 'security resource officer dean',
+  'badge-check': 'dean administrator',
+  'book-open': 'library reading',
+  library: 'books',
+  laptop: 'computer lab technology tech',
+  monitor: 'computer lab technology tech',
+  pencil: 'class room teacher',
+  'notebook-pen': 'class room teacher homework',
+  'graduation-cap': 'class room teacher',
+  'flask-conical': 'science lab chemistry',
+  microscope: 'science lab biology',
+  calculator: 'math',
+  palette: 'art',
+  music: 'band choir orchestra',
+  drama: 'theater theatre',
+  globe: 'social studies geography',
+  utensils: 'cafeteria lunch food',
+  coffee: 'lounge',
+  apple: 'snack food',
+  sandwich: 'lunch cafeteria food',
+  dumbbell: 'gym pe physical education',
+  trophy: 'gym athletics coach',
+  volleyball: 'gym ball',
+  trees: 'outside playground',
+  sun: 'outside recess',
+  armchair: 'lounge calm corner',
+  backpack: 'locker',
+  'door-open': 'exit leave room',
+  key: 'locker',
+  package: 'delivery mail',
+  car: 'parking pickup',
+  bus: 'pickup',
+  house: 'home',
+  recycle: 'trash',
+  trash: 'garbage',
+  shirt: 'clothes uniform',
+  smartphone: 'phone',
+  wrench: 'custodian maintenance',
+  brush: 'custodian janitor',
+};
+
+/** Whether an icon matches what the teacher typed: every word must appear in its name or search words. */
+export function iconMatchesSearch(icon: DestinationIcon, search: string) {
+  const words = `${icon.replaceAll('-', ' ')} ${iconSearchWords[icon] ?? ''}`;
+  return search
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((typed) => words.includes(typed));
+}
+
 /** Icons renamed by newer versions of Lucide, so older saved destinations keep theirs. */
 const renamedIcons: Record<string, DestinationIcon> = { 'building-2': 'building' };
 

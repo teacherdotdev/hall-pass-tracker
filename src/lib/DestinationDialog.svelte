@@ -1,7 +1,7 @@
 <script lang="ts">
   import Modal from './Modal.svelte';
   import { account, deleteDestination, saveDestination } from './account.svelte';
-  import { destinationColors, type DestinationColor, type DestinationIcon } from './destinations';
+  import { destinationColors, iconMatchesSearch, type DestinationColor, type DestinationIcon } from './destinations';
   import { destinationIconGroups } from './icons';
   import Icon from './Icon.svelte';
   import { newId } from './passes';
@@ -30,14 +30,10 @@
 
   const colorNames = Object.keys(destinationColors) as DestinationColor[];
 
-  /** Icon names read as words: "glass-water" is found by "water". */
   let iconSearch = $state('');
   const iconGroups = $derived(
     Object.entries(destinationIconGroups)
-      .map(([group, names]) => ({
-        group,
-        names: names.filter((name) => name.replaceAll('-', ' ').includes(iconSearch.trim().toLowerCase())),
-      }))
+      .map(([group, names]) => ({ group, names: names.filter((name) => iconMatchesSearch(name, iconSearch)) }))
       .filter((entry) => entry.names.length),
   );
 
