@@ -10,6 +10,7 @@
   import { onboarding } from '#lib/onboarding.svelte.ts';
   import OverdueReminder from '#lib/OverdueReminder.svelte';
   import Sidebar from '#lib/Sidebar.svelte';
+  import { serveStudentLink } from '#lib/studentLink.svelte.ts';
   import SiteFooter from '#lib/SiteFooter.svelte';
   import Toast from '#lib/Toast.svelte';
   import Popups from '#lib/Popups.svelte';
@@ -40,6 +41,11 @@
 
   $effect(() => {
     if (ready && !belongsAtDoor) refreshLink();
+  });
+
+  // Students watching the Student link are answered by this computer, from whichever page is open.
+  $effect(() => {
+    if (ready && !isPairedDevice()) serveStudentLink();
   });
 
   /**

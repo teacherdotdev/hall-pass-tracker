@@ -47,6 +47,7 @@
   import { askBeforeLeaving, leaveTo } from '#lib/leaving.ts';
   import Modal from '#lib/Modal.svelte';
   import SupportDetails from '#lib/SupportDetails.svelte';
+  import { serveStudentLink } from '#lib/studentLink.svelte.ts';
   import { formatClock, nextClassPeriod } from '#lib/schedule.ts';
 
   const local = $derived(isLocal());
@@ -129,8 +130,11 @@
 
   onMount(() => {
     // Opening the door screen locks it (on the laptop) or connects it (on a paired device).
-    if (local) setDoorLocked(true);
-    else if (paired) connectToLaptop();
+    // On the teacher's own computer, it also keeps answering the Student link.
+    if (local) {
+      setDoorLocked(true);
+      serveStudentLink();
+    } else if (paired) connectToLaptop();
     // Arriving from the QR code: pair straight away, then drop the code from the
     // address so a later reload never retries a code that has been used up.
     if (page.url.searchParams.has('code')) replaceState('/door', {});

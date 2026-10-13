@@ -1302,3 +1302,161 @@ test('a student who can always go passes a full destination and No-Pass Time wit
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByRole('button', { name: /Maya Ca\..*Out/ })).toBeVisible();
 });
+
+/** Opens the Student link from its tab, and returns its address. */
+async function openStudentLink(page: Page) {
+  await page.getByRole('link', { name: 'Student link', exact: true }).click();
+  await page.getByRole('button', { name: 'Open student link' }).click();
+  const url = await page.getByRole('textbox', { name: 'Student link' }).inputValue();
+  expect(url).toMatch(/\/student\/[\w-]+$/);
+  return url;
+}
+
+test('students watch who is out and the line, live, from the student link', async ({ browser }) => {
+  const laptop = await (await browser.newContext()).newPage();
+  const tablet = await (await browser.newContext()).newPage();
+  const student = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
+  await skipTips(laptop);
+
+  await createClassWithRoster(laptop, 'Period 6');
+  await laptop.getByRole('link', { name: 'Pass Options' }).click();
+  await laptop.getByRole('switch', { name: 'Let students line up' }).check();
+  await setPin(laptop);
+  await laptop.getByRole('button', { name: 'Pair a device' }).click();
+  await expect(laptop.getByText(/Waiting for the device/)).toBeVisible({ timeout: 20_000 });
+  await tablet.goto(`/door?code=${(await laptop.locator('.pair-code').textContent())!.trim()}`);
+  await expect(laptop.locator('.status-box')).toContainText('Kiosk online', { timeout: 30_000 });
+  await laptop.getByRole('button', { name: 'Close' }).click();
+
+  // Closed until the teacher opens it; Home offers to.
+  await goHome(laptop);
+  await expect(laptop.getByRole('link', { name: 'Open student link' })).toBeVisible();
+  const url = await openStudentLink(laptop);
+  await expect(laptop.getByText('Nobody is viewing right now')).toBeVisible({ timeout: 20_000 });
+
+  await student.goto(url);
+  await expect(student.getByRole('heading', { name: 'Period 6' })).toBeVisible({ timeout: 30_000 });
+  await expect(student.getByText('Passes are open')).toBeVisible();
+  await expect(student.getByText("Everyone's in class.")).toBeVisible();
+  await expect(laptop.getByText('1 student viewing right now')).toBeVisible({ timeout: 10_000 });
+
+  // A pass at the kiosk reaches the laptop, and from there the student's page.
+  await tablet.getByRole('button', { name: /Maya Ca\./ }).click();
+  await tablet.getByRole('button', { name: /^Bathroom/ }).click();
+  await tablet.getByRole('button', { name: 'Done' }).click();
+  const out = student.locator('section', { has: student.getByRole('heading', { name: /^Out of class/ }) });
+  await expect(out).toContainText('Maya Ca.', { timeout: 15_000 });
+  await expect(out).toContainText('Bathroom');
+
+  await tablet.getByRole('button', { name: /Jordan E\./ }).click();
+  await tablet.getByRole('button', { name: /^Bathroom/ }).click();
+  await tablet.getByRole('button', { name: 'Join the line' }).click();
+  await tablet.getByRole('button', { name: 'Done' }).click();
+  const line = student.getByLabel('The line for Bathroom');
+  await expect(line).toContainText('Jordan E.', { timeout: 15_000 });
+  await expect(line).not.toContainText('Up next');
+
+  // Maya Ca. comes back: she's no longer out, and Jordan is up next.
+  await tablet.getByRole('button', { name: /Maya Ca\..*Out/ }).click();
+  await expect(out).not.toContainText('Maya Ca.', { timeout: 15_000 });
+  await expect(line).toContainText('Up next');
+
+  // Home shows the link, and who's watching.
+  await goHome(laptop);
+  await expect(laptop.getByRole('textbox', { name: 'Student link' })).toHaveValue(url);
+  await expect(laptop.getByText('1 viewing')).toBeVisible();
+
+  // Closing it tells the student; opening it again brings the page back by itself.
+  await laptop.getByRole('link', { name: 'Student link', exact: true }).click();
+  await laptop.getByRole('button', { name: 'Close student link' }).click();
+  await expect(student.getByRole('heading', { name: 'The student link is closed' })).toBeVisible({ timeout: 10_000 });
+  await laptop.getByRole('button', { name: 'Open student link' }).click();
+  await expect(student.getByRole('heading', { name: 'Period 6' })).toBeVisible({ timeout: 40_000 });
+
+  // A new link: the old one stops working, and the new one works.
+  await laptop.getByRole('button', { name: 'Get a new link' }).click();
+  await laptop.getByRole('dialog').getByRole('button', { name: 'Get a new link' }).click();
+  await expect(student.getByRole('heading', { name: "This link doesn't work any more" })).toBeVisible({ timeout: 10_000 });
+  const newUrl = await laptop.getByRole('textbox', { name: 'Student link' }).inputValue();
+  expect(newUrl).not.toBe(url);
+  await expect(laptop.getByText('Nobody is viewing right now')).toBeVisible({ timeout: 20_000 });
+  await student.goto(newUrl);
+  await expect(student.getByLabel('The line for Bathroom')).toContainText('Jordan E.', { timeout: 30_000 });
+  await expect(laptop.getByText('1 student viewing right now')).toBeVisible({ timeout: 10_000 });
+  await student.goto(url);
+  await expect(student.getByRole('heading', { name: "Can't reach your teacher's computer" })).toBeVisible({
+    timeout: 40_000,
+  });
+});
+
+test("the teacher's own computer as the kiosk keeps the student link going, with one Class Line", async ({
+  browser,
+}) => {
+  const laptop = await (await browser.newContext()).newPage();
+  const student = await (await browser.newContext({ viewport: { width: 1366, height: 768 } })).newPage();
+  await skipTips(laptop);
+
+  await createClassWithRoster(laptop, 'Period 7');
+  await laptop.getByRole('link', { name: 'Pass Options' }).click();
+  await laptop.getByRole('switch', { name: 'Let students line up' }).check();
+  await laptop.getByRole('radio', { name: /^One limit for the whole class/ }).check();
+  const url = await openStudentLink(laptop);
+  await student.goto(url);
+  await expect(student.getByRole('heading', { name: 'Period 7' })).toBeVisible({ timeout: 30_000 });
+
+  await setPin(laptop);
+  await laptop.getByRole('button', { name: 'Use this computer' }).click();
+  await laptop.getByRole('button', { name: 'Open kiosk screen' }).click();
+  await laptop.getByRole('button', { name: /Jordan E\./ }).click();
+  await laptop.getByRole('button', { name: /^Bathroom/ }).click();
+  await laptop.getByRole('button', { name: 'Done' }).click();
+  await laptop.getByRole('button', { name: /Maya Ch\./ }).click();
+  await laptop.getByRole('button', { name: /^Bathroom/ }).click();
+  await laptop.getByRole('button', { name: 'Join the line' }).click();
+  await laptop.getByRole('button', { name: 'Done' }).click();
+
+  await expect(student.getByLabel('The line', { exact: true })).toContainText('Maya Ch.', { timeout: 15_000 });
+  await expect(student.getByLabel('The line', { exact: true })).toContainText('Bathroom');
+
+  // A No-Pass Time shows too. Nothing about how a student's passes are treated is ever sent.
+  await laptop.getByRole('button', { name: 'Teacher' }).click();
+  await laptop.getByLabel('PIN').fill('2468');
+  await laptop.getByRole('button', { name: 'Unlock' }).click();
+  await laptop.getByRole('button', { name: 'Exit kiosk' }).click();
+  await laptop.getByRole('button', { name: 'No passes now' }).click();
+  await expect(student.getByText('No passes right now')).toBeVisible({ timeout: 15_000 });
+  await expect(student.getByText('Your teacher will open passes again.')).toBeVisible();
+  await expect(student.locator('body')).not.toContainText('2468');
+});
+
+test('with two tabs open, one answers the student link, and the other takes over when it closes', async ({
+  browser,
+}) => {
+  const laptop = await browser.newContext();
+  const firstTab = await laptop.newPage();
+  const student = await (await browser.newContext()).newPage();
+  await skipTips(firstTab);
+
+  await createClassWithRoster(firstTab, 'Period 8');
+  const url = await openStudentLink(firstTab);
+  await expect(firstTab.getByText('Nobody is viewing right now')).toBeVisible({ timeout: 20_000 });
+
+  const secondTab = await laptop.newPage();
+  await skipTips(secondTab);
+  await secondTab.goto('/student-link');
+  await expect(secondTab.getByText(/Another Happy Hallways tab on this computer is sharing the link/)).toBeVisible({
+    timeout: 20_000,
+  });
+
+  await student.goto(url);
+  await expect(student.getByRole('heading', { name: 'Period 8' })).toBeVisible({ timeout: 30_000 });
+  await expect(secondTab.getByText('1 student viewing right now')).toBeVisible({ timeout: 10_000 });
+
+  // The tab answering closes; the student's page says so, then finds the other tab.
+  await firstTab.close();
+  await expect(student.getByRole('heading', { name: "Can't reach your teacher's computer" })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(student.getByRole('heading', { name: 'Period 8' })).toBeVisible({ timeout: 60_000 });
+  await expect(secondTab.getByText('1 student viewing right now')).toBeVisible({ timeout: 10_000 });
+});

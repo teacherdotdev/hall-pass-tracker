@@ -172,6 +172,16 @@ has not paired successfully is never a kiosk; if pairing is impossible on the
 network, the teacher's own computer is the kiosk.
 _Avoid_: Linking, connecting, logging in
 
+**Student link**:
+A link the teacher posts, say in Google Classroom, so students can see on their
+own Chromebook or phone what the door screen shows about the Active Class: who
+is out and where they went, each Line, and whether passes are open. It only
+looks; signing out still happens at the kiosk. Students' devices connect to the
+teacher's computer, not the kiosk, so the link works only while Happy Hallways
+is open there, and only while the teacher has it open. Getting a new link stops
+the old one working. Anyone with the link can see the Display Names on it.
+_Avoid_: Share link, public view, student view, student mode
+
 **Active Class**:
 The class the kiosk is currently showing. Changing it ends every pass still open
 in the class being left. While the teacher is On Schedule it moves by itself as
@@ -221,7 +231,7 @@ _Avoid_: Archived student, deleted student, inactive student
 
 **Backup**:
 A single file holding everything the teacher's laptop knows: classes, students,
-passes, destinations, Pass Options, schedules and the kiosk pairing. Restoring it replaces
+passes, destinations, Pass Options, schedules, the kiosk pairing and the Student link. Restoring it replaces
 everything in that browser and puts the teacher back exactly where they were.
 Happy Hallways has no accounts or sign-in; the backup is the only copy that leaves the
 browser.

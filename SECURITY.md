@@ -15,6 +15,10 @@ storage. See `docs/adr/0005-local-first-with-the-kiosk-in-charge-of-the-door.md`
 - **On a paired kiosk:** each class's display names, destinations and Pass
   Limit, the teacher's PIN, and passes that are open or not yet handed to the
   laptop. It never holds the full history.
+- **On a student's device, through the Student link:** while the teacher has
+  it open, the name of the class on the kiosk, the display names and
+  destinations of students who are out or in line, and whether passes are
+  open. Nothing is saved there; it's shown while the page is open. See below.
 
 ## The connection between kiosk and laptop
 
@@ -41,6 +45,27 @@ storage. See `docs/adr/0005-local-first-with-the-kiosk-in-charge-of-the-door.md`
 - After pairing, the kiosk proves itself with a long random secret. The laptop
   ignores connections without the current kiosk's secret, except that a
   replaced kiosk may hand over passes it still holds, once.
+
+## The Student link
+
+- Students' browsers connect to the teacher's computer the same way the kiosk
+  does: introduced by the matchmaking server, then over WebRTC's encrypted
+  channel, directly or through the TURN relay. The kiosk is never involved.
+- The link's address holds a long random id. **Anyone who has the link can
+  see what it shows** while it is open, so it is meant for the class's own
+  students, in a place only they can see (such as Google Classroom). A
+  student can pass it on; "Get a new link" makes the old one stop working at
+  once, and "Close student link" turns everyone away.
+- It shows only what the door screen already shows the whole room: the class
+  on the kiosk, display names and destinations of students who are out or in
+  line, and whether passes are open. Never how long anyone has been out, the
+  PIN, the rest of the roster, history, or whether a student is exempt or can
+  always go.
+- It is view-only: the teacher's computer ignores anything a student's device
+  sends except "still here". At most 40 devices can watch at once; the rest
+  are told to try again later.
+- The connections are served by the teacher's open browser tab. Closing it, or
+  the computer sleeping, ends them.
 
 ## What the PIN does and doesn't do
 

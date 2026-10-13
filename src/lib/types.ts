@@ -233,6 +233,12 @@ export type Account = {
   replacedKiosks: { kioskId: string; secret: string }[];
   /** Set when a pairing attempt showed that this network blocks device-to-device connections. */
   networkBlocked: boolean;
+  /**
+   * The Student link, once the teacher has opened it: the unguessable id in
+   * its address, and whether it is open right now. Getting a new link changes
+   * the id. See docs/adr/0012.
+   */
+  studentLink: { id: string; open: boolean } | null;
   lastExportedAt?: string;
 };
 
@@ -296,3 +302,42 @@ export type LaptopMessage =
   | { type: 'replaced' }
   | { type: 'answer'; requestId: string; approve: boolean }
   | { type: 'ping' };
+
+/**
+ * What a student's device is shown over the Student link: the same as the
+ * door screen shows about the class on the kiosk, and nothing more. Display
+ * Names only; never times, PINs, or how a student's passes are treated.
+ * See docs/adr/0012.
+ */
+export type StudentView = {
+  /** The class on the kiosk, or null when there is none. */
+  className: string | null;
+  /** Whether passes are open, it's a No-Pass Time, it's between classes, or no class is on the kiosk. */
+  status: 'open' | 'no-pass' | 'between' | 'no-class';
+  /** During a No-Pass Time: "Passes open at 9:15 AM.", or that the teacher will open them. */
+  whenPassesOpen?: string;
+  /** Who is out now, first to leave first. */
+  out: { name: string; destination: string }[];
+  /** Each Line in order, as the door shows them. Under a Class Limit there is one, with no destination. */
+  lines: { destination: string | null; spots: { name: string; destination: string; upNext: boolean }[] }[];
+  /** Just enough of each destination to draw its icon. */
+  destinations: Pick<Destination, 'label' | 'color' | 'icon'>[];
+};
+
+/**
+ * Messages from the teacher's computer to a student's device. "closed": the
+ * teacher closed the link. "full": too many people are viewing. "old-link":
+ * the teacher got a new link, so this one stops working.
+ */
+export type StudentLinkMessage =
+  | { type: 'view'; view: StudentView }
+  | { type: 'closed' }
+  | { type: 'full' }
+  | { type: 'old-link' }
+  | { type: 'ping' };
+
+/**
+ * Messages from a student's device to the teacher's computer. Only "still
+ * here" for now; asking for a pass would be added here, over the same link.
+ */
+export type StudentMessage = { type: 'ping' };

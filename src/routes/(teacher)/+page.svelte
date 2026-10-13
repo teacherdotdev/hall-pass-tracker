@@ -36,6 +36,8 @@
   import QuietScene, { seasons, type Season } from '#lib/QuietScene.svelte';
   import { page } from '$app/state';
   import SiteFooter from '#lib/SiteFooter.svelte';
+  import { studentLink } from '#lib/studentLink.svelte.ts';
+  import StudentLinkCopy from '#lib/StudentLinkCopy.svelte';
   import { duration, hasRealDuration, isOverdue, now, time } from '#lib/passes.ts';
   import { nextClassPeriod, periodAt, toMinutes } from '#lib/schedule.ts';
   import type { Block, PassRequest } from '#lib/types.ts';
@@ -399,6 +401,23 @@
       {/if}
     </section>
 
+    <section class="kiosk-card" aria-labelledby="student-link-title">
+      <div class="panel-head">
+        <h2 id="student-link-title"><Icon name="link" size={18} />Student link</h2>
+        {#if account.studentLink?.open}
+          <span class="kiosk-state">
+            <span class="status-dot" class:live={studentLink.viewers > 0} aria-hidden="true"></span>{studentLink.viewers} viewing
+          </span>
+        {/if}
+      </div>
+      {#if account.studentLink?.open}
+        <StudentLinkCopy />
+      {:else}
+        <p class="muted small">Students can check who's out and the line from their own Chromebook or phone.</p>
+        <div class="kiosk-actions"><a class="btn btn-small" href="/student-link">Open student link</a></div>
+      {/if}
+    </section>
+
     <aside class="requests-panel" aria-labelledby="requests-title" data-tip="tip-requests">
       <div class="panel-head">
         <h2 id="requests-title"><Icon name="hand" size={18} />Requests</h2>
@@ -599,7 +618,7 @@
     position: sticky;
     top: 40px;
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr);
     gap: 12px;
     height: var(--fit);
   }

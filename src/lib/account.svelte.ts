@@ -50,6 +50,7 @@ function blankAccount(): Account {
     activeClass: null,
     replacedKiosks: [],
     networkBlocked: false,
+    studentLink: null,
   };
 }
 
@@ -159,15 +160,15 @@ function load(): Account {
 
 export const account: Account = $state(load());
 
-/** Called after every save, so a connected kiosk hears about the change. */
-let afterSave = () => {};
+/** Called after every save, so a connected kiosk, and students watching the Student link, hear about the change. */
+const afterSave: (() => void)[] = [];
 export function onSave(listener: () => void) {
-  afterSave = listener;
+  afterSave.push(listener);
 }
 
 function save() {
   localStorage.setItem(storageKey, JSON.stringify(account));
-  afterSave();
+  for (const listener of afterSave) listener();
 }
 
 /**
@@ -176,9 +177,9 @@ function save() {
  * others' changes, and only one tab can hold the laptop's address for the
  * kiosk. So when another tab saves, this one takes its copy straight away.
  */
-let afterReload = () => {};
+const afterReload: (() => void)[] = [];
 export function onReload(listener: () => void) {
-  afterReload = listener;
+  afterReload.push(listener);
 }
 
 if (typeof window !== 'undefined') {
@@ -187,7 +188,7 @@ if (typeof window !== 'undefined') {
     const fresh = load();
     for (const key of Object.keys(account)) if (!(key in fresh)) delete account[key as keyof Account];
     Object.assign(account, fresh);
-    afterReload();
+    for (const listener of afterReload) listener();
   });
 }
 
@@ -730,6 +731,16 @@ export function markKioskSeen() {
 
 export function setNetworkBlocked(blocked: boolean) {
   account.networkBlocked = blocked;
+  save();
+}
+
+/**
+ * Opens or closes the Student link. The first time it opens, it gets its
+ * address; `newLink` gives it a new one, and the old one stops working.
+ */
+export function setStudentLink(open: boolean, newLink = false) {
+  const id = newLink || !account.studentLink ? newId() : account.studentLink.id;
+  account.studentLink = { id, open };
   save();
 }
 

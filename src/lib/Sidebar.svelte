@@ -50,6 +50,10 @@
       <Icon name="tablet" />Kiosk
     </a>
 
+    <a class="nav-link" class:active={path === '/student-link'} href="/student-link">
+      <Icon name="link" />Student link
+    </a>
+
     <a class="nav-link" class:active={path === '/history'} href="/history">
       <Icon name="history" />History
     </a>

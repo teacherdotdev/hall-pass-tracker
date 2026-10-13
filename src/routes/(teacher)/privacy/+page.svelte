@@ -54,6 +54,20 @@
   </section>
 
   <section class="card">
+    <h2>The student link</h2>
+    <p>
+      If you open the student link, students who have it can see, on their own device, what the kiosk shows the whole
+      room: who is out and where they went, who is waiting in line, and whether passes are open, using the same short
+      names. Their device connects straight to your computer, the same way the kiosk does, and keeps nothing.
+    </p>
+    <p>
+      Anyone with the link can see it while it's open, so share it only with your class. You can close it at any time,
+      or get a new link so the old one stops working. It never shows how long anyone has been out, your PIN, or anything
+      you've set for a student.
+    </p>
+  </section>
+
+  <section class="card">
     <h2>No tracking</h2>
     <p>
       Happy Hallways doesn't use cookies or ads, and we don't share, sell or otherwise transfer any visitor data. To see

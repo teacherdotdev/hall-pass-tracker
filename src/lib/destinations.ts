@@ -120,7 +120,7 @@ export function defaultDestinations(newId: () => string): Destination[] {
  * history still reads correctly if the destination is renamed or removed; a
  * name no longer on the list is drawn in grey.
  */
-export function lookFor(destinations: Destination[], label: string) {
+export function lookFor(destinations: Pick<Destination, 'label' | 'color' | 'icon'>[], label: string) {
   const match = destinations.find((destination) => destination.label === label);
   const color = destinationColors[match?.color ?? 'gray'];
   return { icon: knownIcon(match?.icon ?? 'map-pin') as IconName, strong: color.strong, soft: color.soft };
