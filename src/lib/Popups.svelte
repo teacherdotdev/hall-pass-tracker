@@ -41,6 +41,19 @@
     return onPage.filter((tip) => !tourDone.includes(tip.id));
   });
 
+  // News waits while another dialog is open, so it never stacks on top of one,
+  // and shows once that dialog closes.
+  let otherDialogOpen = $state(false);
+  $effect(() => {
+    if (!shownNews.length) return;
+    const check = () => {
+      otherDialogOpen = document.querySelector('[aria-modal="true"]:not([aria-labelledby="whats-changed-title"])') !== null;
+    };
+    check();
+    const timer = setInterval(check, 400);
+    return () => clearInterval(timer);
+  });
+
   function closeNews() {
     markPopupsSeen(shownNews.map((each) => each.id));
     asked = null;
@@ -119,7 +132,7 @@
   const tipCount = $derived(tip ? tips.filter((each) => each.page === tip.page).length : 0);
 </script>
 
-{#if shownNews.length}
+{#if shownNews.length && !otherDialogOpen}
   <Modal onClose={closeNews} labelledby="whats-changed-title">
     <div class="dialog whats-changed">
       <div>
@@ -133,24 +146,30 @@
           {#if shownNews.length > 1}<p class="eyebrow">{update.title}</p>{/if}
           <ol class="changes">
             {#each update.items as item (item.title)}
-              <li>
+              <li class:compact={!item.art}>
                 <div>
                   <h3>{item.title}</h3>
-                  <p class="muted">{item.text}</p>
+                  <p class="muted">
+                    {item.text}
+                    {#if item.link}<a class="go" href={item.link.href} onclick={closeNews}>{item.link.label} →</a>{/if}
+                  </p>
                 </div>
-                <UpdateArt art={item.art} />
+                {#if item.art}<UpdateArt art={item.art} />{/if}
               </li>
             {/each}
           </ol>
-          {#if shownNews.length > 1}
-            <div><button class="btn" onclick={() => act(update.action.href)}>{update.action.label}</button></div>
+          {#if update.also}<p class="muted small also"><strong>Also:</strong> {update.also}</p>{/if}
+          {#if shownNews.length > 1 && update.action}
+            {@const action = update.action}
+            <div><button class="btn" onclick={() => act(action.href)}>{action.label}</button></div>
           {/if}
         </section>
       {/each}
 
       <div class="dialog-actions">
-        {#if shownNews.length === 1}
-          <button class="btn" onclick={() => act(shownNews[0].action.href)}>{shownNews[0].action.label}</button>
+        {#if shownNews.length === 1 && shownNews[0].action}
+          {@const action = shownNews[0].action}
+          <button class="btn" onclick={() => act(action.href)}>{action.label}</button>
         {/if}
         <button class="btn btn-primary" onclick={closeNews}>Got it</button>
       </div>
@@ -208,6 +227,31 @@
     gap: 28px;
     padding-top: 16px;
     border-top: 1px solid var(--border);
+  }
+
+  /* A change without a drawing: a short row, so a long list still fits on a laptop. */
+  .changes li.compact {
+    grid-template-columns: 1fr;
+    padding-top: 12px;
+  }
+
+  .changes li.compact h3 {
+    margin-bottom: 2px;
+    font-size: 16px;
+  }
+
+  .changes li.compact p {
+    margin: 0;
+  }
+
+  .go {
+    margin-left: 4px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .also {
+    margin: 0;
   }
 
   h3 {

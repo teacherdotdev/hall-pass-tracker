@@ -15,9 +15,15 @@ export type News = {
   id: string;
   /** Heads this news when it's shown along with older news the teacher hasn't seen. */
   title: string;
-  items: { title: string; text: string; art: PopupArt }[];
-  /** Where the teacher should go to act on the news. */
-  action: { label: string; href: string };
+  /**
+   * Each change. One with a drawing gets a big row beside it; one without is a
+   * short row in a compact list, with a link to where to find it.
+   */
+  items: { title: string; text: string; art?: PopupArt; link?: { label: string; href: string } }[];
+  /** Smaller changes, in one short line under the list. */
+  also?: string;
+  /** Where the teacher should go to act on the news, when it all happens in one place. */
+  action?: { label: string; href: string };
 };
 
 export type Tip = {
@@ -80,6 +86,31 @@ export const news: News[] = [
       },
     ],
     action: { label: 'Go to Home', href: '/' },
+  },
+  {
+    id: '2026-10-13-class-limit-pins-student-link',
+    title: 'Limits, PINs and the Student link',
+    items: [
+      {
+        title: 'One limit for the whole class',
+        text: 'Under “How limits work”, choose one limit for the whole class or a limit for each destination. Set the Nurse, or anywhere else, not to count.',
+        link: { label: 'Pass Options', href: '/pass-options' },
+      },
+      {
+        title: 'Can always go',
+        text: 'For students with medical, IEP or 504 needs: nothing at the kiosk holds them back, and every trip is still recorded. Edit a student in their class to turn it on. “Exempt” is now “Exempt from the Pass Allowance only”.',
+      },
+      {
+        title: 'Student PINs',
+        text: 'Turn on “Students enter a PIN at the kiosk” in a class’s settings (the ⚙ button), so nobody signs out as someone else. Print PIN cards from the class’s Students list.',
+      },
+      {
+        title: 'Student link',
+        text: 'Students can watch who’s out and the line from their own Chromebook. Open the new Student link tab and paste the link into Google Classroom.',
+        link: { label: 'Student link', href: '/student-link' },
+      },
+    ],
+    also: 'Drag your classes in the sidebar to put them in order. Long destination lists now scroll on the kiosk, and the icon picker always fits and finds everyday words like “restroom” and “nurse”.',
   },
 ];
 
